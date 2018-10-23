@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{DEFAULT} [%t] %-5level %logger{36} %l - %msg%n"/>
+        </Console>
+        <File name="CloudDB" filename="logs/client.log">
+            <PatternLayout pattern="%d{DEFAULT} [%t] %-5level %logger{36} %l - %msg%n"/>
+        </File>
+        <File name="kvServer" filename="logs/server.log">
+            <PatternLayout pattern="%d{DEFAULT} [%t] %-5level %logger{36} %l - %msg%n"/>
+        </File>
+        <File name="tests" filename="logs/tests.log">
+            <PatternLayout pattern="%d{DEFAULT} [%t] %-5level %logger{36} %l - %msg%n"/>
+        </File>
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <!--<AppenderRef ref="Console"/>-->
+            <AppenderRef ref="CloudDB" />
+        </Root>
+        <Logger name="kvServer" level="all" additivity="false">
+            <AppenderRef ref="Console" />
+            <appender-ref ref="kvServer" />
+        </Logger>
+        <Logger name="tests" level="all" additivity="false">
+            <AppenderRef ref="Console" />
+            <appender-ref ref="tests" />
+        </Logger>
+    </Loggers>
+</Configuration>
