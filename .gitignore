@@ -334,7 +334,7 @@ gradle-app.setting
 ### Gradle Patch ###
 **/build/
 
-MANIFEST.MF
+*.MF
 !libs/*.jar
 
 # End of https://www.gitignore.io/api/vim,osx,java,linux,emacs,gradle,windows,eclipse,intellij+all,visualstudiocode

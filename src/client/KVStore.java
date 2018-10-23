@@ -16,24 +16,36 @@ public class KVStore implements KVCommInterface {
 
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void connect() throws Exception {
         // TODO Auto-generated method stub
 
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void disconnect() {
         // TODO Auto-generated method stub
 
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public KVMessage put(String key, String value) throws Exception {
         // TODO Auto-generated method stub
         return null;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public KVMessage get(String key) throws Exception {
         // TODO Auto-generated method stub
