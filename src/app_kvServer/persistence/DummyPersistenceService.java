@@ -1,5 +1,6 @@
 package app_kvServer.persistence;
 
+import app_kvServer.CacheReplacementStrategy;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -17,7 +18,7 @@ public class DummyPersistenceService implements PersistenceService {
 
     private final Map<String, String> map;
 
-    public DummyPersistenceService(int cacheSize, String displacementStrategy) {
+    public DummyPersistenceService(int cacheSize, CacheReplacementStrategy displacementStrategy) {
         LOG.info("Dummy persistence service created with size {} {} cache",
                 cacheSize,
                 displacementStrategy);
