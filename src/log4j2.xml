@@ -19,7 +19,7 @@
             <!--<AppenderRef ref="Console"/>-->
             <AppenderRef ref="CloudDB" />
         </Root>
-        <Logger name="kvServer" level="all" additivity="false">
+        <Logger name="app_kvServer" level="all" additivity="false">
             <AppenderRef ref="Console" />
             <appender-ref ref="kvServer" />
         </Logger>
