@@ -335,6 +335,6 @@ gradle-app.setting
 **/build/
 
 *.MF
-!libs/*.jar
+!libs/**/*.jar
 
 # End of https://www.gitignore.io/api/vim,osx,java,linux,emacs,gradle,windows,eclipse,intellij+all,visualstudiocode
