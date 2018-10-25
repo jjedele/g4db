@@ -1,5 +1,6 @@
 package testing;
 
+import app_kvServer.CacheReplacementStrategy;
 import app_kvServer.KVServer;
 import junit.framework.Test;
 import junit.framework.TestSuite;
@@ -11,7 +12,7 @@ public class AllTests {
 
     static {
         try {
-            new KVServer(50000, 10, "FIFO");
+            new KVServer(50000, 10, CacheReplacementStrategy.FIFO);
         } catch (Exception e) {
             e.printStackTrace();
         }
