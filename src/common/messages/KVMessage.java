@@ -2,17 +2,23 @@ package common.messages;
 
 public interface KVMessage {
 
-    public enum StatusType {
-        GET, 			/* Get - request */
-        GET_ERROR, 		/* requested tuple (i.e. value) not found */
-        GET_SUCCESS, 	/* requested tuple (i.e. value) found */
-        PUT, 			/* Put - request */
-        PUT_SUCCESS, 	/* Put - request successful, tuple inserted */
-        PUT_UPDATE, 	/* Put - request successful, i.e. value updated */
-        PUT_ERROR, 		/* Put - request not successful */
-        DELETE, 		/* Delete - request */
-        DELETE_SUCCESS, /* Delete - request successful */
-        DELETE_ERROR 	/* Delete - request successful */
+    enum StatusType {
+        GET((byte) 0x0), 			/* Get - request */
+        GET_ERROR((byte) 0x1), 		/* requested tuple (i.e. value) not found */
+        GET_SUCCESS((byte) 0x2), 	/* requested tuple (i.e. value) found */
+        PUT((byte) 0x3), 			/* Put - request */
+        PUT_SUCCESS((byte) 0x4), 	/* Put - request successful, tuple inserted */
+        PUT_UPDATE((byte) 0x5), 	/* Put - request successful, i.e. value updated */
+        PUT_ERROR((byte) 0x6), 		/* Put - request not successful */
+        DELETE((byte) 0x7), 		/* Delete - request */
+        DELETE_SUCCESS((byte) 0x8), /* Delete - request successful */
+        DELETE_ERROR((byte) 0x9); 	/* Delete - request successful */
+
+        public final byte opCode;
+
+        StatusType(byte opCode) {
+            this.opCode = opCode;
+        }
     }
 
     /**

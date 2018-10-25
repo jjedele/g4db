@@ -5,7 +5,9 @@ import common.messages.DefaultKVMessage;
 import common.messages.KVMessage;
 import common.utils.RecordReader;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Implementation of the wire protocol.
@@ -14,20 +16,34 @@ public final class Protocol {
 
     private Protocol() {}
 
+    private static final byte UNIT_SEPARATOR = 0x1f;
+
     /**
      * Encodes a {@link KVMessage} into binary format to transfer it over the network.
      * @param message message to marshal
      * @return encoded data as per protocol
      */
     public static byte[] encode(KVMessage message) {
-        // TODO replace with real implementation
-        String combined = "UNSUPPORTED OPERATION\n";
-        if (message.getStatus() == KVMessage.StatusType.GET_SUCCESS) {
-            combined = String.format("GET_SUCCESS: %s -> %s\n", message.getKey(), message.getValue());
-        } else if (message.getStatus() == KVMessage.StatusType.PUT_SUCCESS) {
-            combined = String.format("PUT_SUCCESS: %s -> %s\n", message.getKey(), message.getValue());
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        // add content type, static for now
+        bos.write(ContentType.KV_MESSAGE);
+
+        if (message.getStatus() == KVMessage.StatusType.PUT) {
+            // op code
+            bos.write(KVMessage.StatusType.PUT.opCode);
+
+            // key
+            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
+            bos.write(keyData, 0, keyData.length);
+            bos.write(UNIT_SEPARATOR);
+
+            // value
+            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
+            bos.write(valueData, 0, valueData.length);
+            bos.write(UNIT_SEPARATOR);
         }
-        return combined.getBytes();
+
+        return bos.toByteArray();
     }
 
     // TODO: decide if we want to do this
@@ -48,24 +64,32 @@ public final class Protocol {
      * @throws ProtocolException if the data actually encoded an exception
      */
     public static KVMessage decode(byte[] payload) throws ProtocolException {
-        // TODO replace with real implementation
+        // TODO check and throw exception if length of payload < 3
+        byte contentType = payload[0];
+
+        if (contentType != ContentType.KV_MESSAGE) {
+            throw new ProtocolException("Unsupported content type: " + contentType);
+        }
+
+        byte statusCode = payload[1];
+        byte data[] = new byte[payload.length - 2];
+        System.arraycopy(payload, 2, data, 0, data.length);
+
         try {
-            RecordReader fieldReader = new RecordReader(payload, (byte) ' ');
+            RecordReader reader = new RecordReader(data, UNIT_SEPARATOR);
 
-            String operationCode = new String(fieldReader.read());
+            if (statusCode == KVMessage.StatusType.PUT.opCode) {
+                byte[] keyData = reader.read();
+                byte[] valueData = reader.read();
+                String key = new String(keyData, StandardCharsets.UTF_8);
+                String value = new String(valueData, StandardCharsets.UTF_8);
 
-            if ("PUT".equals(operationCode)) {
-                String key = new String(fieldReader.read());
-                String value = new String(fieldReader.read());
                 return new DefaultKVMessage(key, value, KVMessage.StatusType.PUT);
-            } else if ("GET".equals(operationCode)) {
-                String key = new String(fieldReader.read());
-                return new DefaultKVMessage(key, null, KVMessage.StatusType.GET);
             } else {
-                throw new ProtocolException("Unknown op code: " + operationCode);
+                throw new ProtocolException("Unsupported status code: " + statusCode);
             }
-        } catch (NullPointerException | IOException e) {
-            throw new ProtocolException("Could not decode message");
+        } catch (IOException e) {
+            throw new ProtocolException("Error decoding message.", e);
         }
     }
 
