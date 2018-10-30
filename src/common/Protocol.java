@@ -14,12 +14,14 @@ import java.nio.charset.StandardCharsets;
  */
 public final class Protocol {
 
-    private Protocol() {}
+    private Protocol() {
+    }
 
     private static final byte UNIT_SEPARATOR = 0x1f;
 
     /**
      * Encodes a {@link KVMessage} into binary format to transfer it over the network.
+     *
      * @param message message to marshal
      * @return encoded data as per protocol
      */
@@ -28,9 +30,26 @@ public final class Protocol {
         // add content type, static for now
         bos.write(ContentType.KV_MESSAGE);
 
+        // PUT
         if (message.getStatus() == KVMessage.StatusType.PUT) {
             // op code
             bos.write(KVMessage.StatusType.PUT.opCode);
+
+            // key
+            byte[] keyData = message.putKey().getBytes(StandardCharsets.UTF_8);
+            bos.write(keyData, 0, keyData.length);
+            bos.write(UNIT_SEPARATOR);
+
+            // value
+            byte[] valueData = message.putValue().getBytes(StandardCharsets.UTF_8);
+            bos.write(valueData, 0, valueData.length);
+            bos.write(UNIT_SEPARATOR);
+        }
+
+        //Get
+        if (message.getStatus() == KVMessage.StatusType.GET) {
+            // op code
+            bos.write(KVMessage.StatusType.GET.opCode);
 
             // key
             byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
@@ -38,7 +57,55 @@ public final class Protocol {
             bos.write(UNIT_SEPARATOR);
 
             // value
-            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
+//            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
+//            bos.write(valueData, 0, valueData.length);
+//            bos.write(UNIT_SEPARATOR);
+        }
+
+        //PUT_SUCCESS
+        if (message.getStatus() == KVMessage.StatusType.PUT_SUCCESS) {
+            // op code
+            bos.write(KVMessage.StatusType.PUT_SUCCESS.opCode);
+
+            // key
+            byte[] keyData = message.putSuccessKey().getBytes(StandardCharsets.UTF_8);
+            bos.write(keyData, 0, keyData.length);
+            bos.write(UNIT_SEPARATOR);
+
+            // value
+            byte[] valueData = message.putSuccessValue().getBytes(StandardCharsets.UTF_8);
+            bos.write(valueData, 0, valueData.length);
+            bos.write(UNIT_SEPARATOR);
+        }
+
+        //PUT_UPDATE
+        if (message.getStatus() == KVMessage.StatusType.PUT_UPDATE ) {
+            // op code
+            bos.write(KVMessage.StatusType.PUT_UPDATE.opCode);
+
+            // key
+            byte[] keyData = message.putUpdateKey().getBytes(StandardCharsets.UTF_8);
+            bos.write(keyData, 0, keyData.length);
+            bos.write(UNIT_SEPARATOR);
+
+            // value
+            byte[] valueData = message.putUpdateValue().getBytes(StandardCharsets.UTF_8);
+            bos.write(valueData, 0, valueData.length);
+            bos.write(UNIT_SEPARATOR);
+        }
+
+        // DELETE_SUCCESS
+        if (message.getStatus() == KVMessage.StatusType.DELETE_SUCCESS) {
+            // op code
+            bos.write(KVMessage.StatusType.DELETE_SUCCESS.opCode);
+
+            // key
+            byte[] keyData = message.DeleteSuccessKey().getBytes(StandardCharsets.UTF_8);
+            bos.write(keyData, 0, keyData.length);
+            bos.write(UNIT_SEPARATOR);
+
+            // value
+            byte[] valueData = message.DeleteSuccessValue().getBytes(StandardCharsets.UTF_8);
             bos.write(valueData, 0, valueData.length);
             bos.write(UNIT_SEPARATOR);
         }
@@ -46,7 +113,7 @@ public final class Protocol {
         return bos.toByteArray();
     }
 
-    // TODO: decide if we want to do this
+        // TODO: decide if we want to do this
 //    /**
 //     * Encodes an {@link ProtocolException} into binary format to transfer it over the network.
 //     * @param exception exception to marshal
@@ -57,40 +124,77 @@ public final class Protocol {
 //        return null;
 //    }
 
-    /**
-     * Decodes binary data as per protocol.
-     * @param payload the binary data
-     * @return the decoded message
-     * @throws ProtocolException if the data actually encoded an exception
-     */
-    public static KVMessage decode(byte[] payload) throws ProtocolException {
-        // TODO check and throw exception if length of payload < 3
-        byte contentType = payload[0];
+        /**
+         * Decodes binary data as per protocol.
+         * @param payload the binary data
+         * @return the decoded message
+         * @throws ProtocolException if the data actually encoded an exception
+         */
+        public static KVMessage decode(byte[] payload) throws ProtocolException {
+            // TODO check and throw exception if length of payload < 3
+            byte contentType = payload[0];
 
-        if (contentType != ContentType.KV_MESSAGE) {
-            throw new ProtocolException("Unsupported content type: " + contentType);
-        }
-
-        byte statusCode = payload[1];
-        byte data[] = new byte[payload.length - 2];
-        System.arraycopy(payload, 2, data, 0, data.length);
-
-        try {
-            RecordReader reader = new RecordReader(data, UNIT_SEPARATOR);
-
-            if (statusCode == KVMessage.StatusType.PUT.opCode) {
-                byte[] keyData = reader.read();
-                byte[] valueData = reader.read();
-                String key = new String(keyData, StandardCharsets.UTF_8);
-                String value = new String(valueData, StandardCharsets.UTF_8);
-
-                return new DefaultKVMessage(key, value, KVMessage.StatusType.PUT);
-            } else {
-                throw new ProtocolException("Unsupported status code: " + statusCode);
+            if (contentType != ContentType.KV_MESSAGE) {
+                throw new ProtocolException("Unsupported content type: " + contentType);
             }
-        } catch (IOException e) {
-            throw new ProtocolException("Error decoding message.", e);
+
+            byte statusCode = payload[1];
+            byte data[] = new byte[payload.length - 2];
+            System.arraycopy(payload, 2, data, 0, data.length); //Maybe a problem with this code
+
+
+            try {
+                RecordReader reader = new RecordReader(data, UNIT_SEPARATOR);
+                //PUT
+                if (statusCode == KVMessage.StatusType.PUT.opCode) {
+                    byte[] keyData = reader.read();
+                    byte[] valueData = reader.read();
+                    String key = new String(keyData, StandardCharsets.UTF_8);
+                    String value = new String(valueData, StandardCharsets.UTF_8);
+
+                    return new DefaultKVMessage(key, value, KVMessage.StatusType.PUT);
+
+                    //GET
+                } else if (statusCode == KVMessage.StatusType.GET.opCode) {
+                    byte[] keyData = reader.read();
+                    //byte[] valueData = reader.read();
+                    String key = new String(keyData, StandardCharsets.UTF_8);
+                    //String value = new String(valueData, StandardCharsets.UTF_8);
+                    return new DefaultKVMessage(key, null, KVMessage.StatusType.GET);
+
+                    //PUT_SUCCESS
+                } else if (statusCode == KVMessage.StatusType.PUT_SUCCESS.opCode) {
+                    byte[] keyData = reader.read();
+                    byte[] valueData = reader.read();
+                    String key = new String(keyData, StandardCharsets.UTF_8);
+                    String value = new String(valueData, StandardCharsets.UTF_8);
+                    return new DefaultKVMessage(key, value, KVMessage.StatusType.PUT_SUCCESS);
+
+                    //PUT_UPDATE
+                }else if (statusCode == KVMessage.StatusType.PUT_UPDATE.opCode) {
+                    byte[] keyData = reader.read();
+                    byte[] valueData = reader.read();
+                    String key = new String(keyData, StandardCharsets.UTF_8);
+                    String value = new String(valueData, StandardCharsets.UTF_8);
+                    return new DefaultKVMessage(key, value, KVMessage.StatusType.PUT_UPDATE);
+
+                    //DELETE_SUCCESS
+                }else if (statusCode == KVMessage.StatusType.DELETE_SUCCESS.opCode) {
+                    byte[] keyData = reader.read();
+                    byte[] valueData = reader.read();
+                    String key = new String(keyData, StandardCharsets.UTF_8);
+                    String value = new String(valueData, StandardCharsets.UTF_8);
+                    return new DefaultKVMessage(key, value, KVMessage.StatusType.DELETE_SUCCESS);
+
+                }else{
+                    throw new ProtocolException("Unsupported status code: " + statusCode);
+                }
+            } catch (IOException e) {
+                throw new ProtocolException("Error decoding message.", e);
+            }
+
+
         }
-    }
+
 
 }

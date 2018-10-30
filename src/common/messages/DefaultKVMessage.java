@@ -26,6 +26,8 @@ public class DefaultKVMessage implements KVMessage {
     /**
      * {@inheritDoc}
      */
+
+    //GET
     @Override
     public String getKey() {
         return key;
@@ -54,5 +56,101 @@ public class DefaultKVMessage implements KVMessage {
     public String toString() {
         return String.format("<%s, %s, %d>", key, value, status);
     }
+
+    //PUT
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String putKey() {
+        return key;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String putValue() {
+        return value;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public StatusType putStatus() {
+        return status;
+    }
+
+
+    //PUT_SUCCESS
+    @Override
+    public String putSuccessKey() {
+        return key;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String putSuccessValue() {
+        return value;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public StatusType putSuccessStatus() {
+        return status;
+    }
+
+
+    //PUT_UPDATE
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String putUpdateKey() {
+        return key;
+    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String putUpdateValue() {
+        return value;
+    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public StatusType putUpdateStatus() {
+        return status;
+    }
+
+    //DELETE_SUCCESS
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String DeleteSuccessKey() {
+        return key;
+    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String DeleteSuccessValue() {
+        return value;
+    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public StatusType DeleteSuccessStatus() {
+        return status;
+    }
+
 
 }
