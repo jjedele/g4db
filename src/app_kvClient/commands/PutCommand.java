@@ -1,18 +1,20 @@
 package app_kvClient.commands;
 
 import app_kvClient.KVClient;
-import client.Client;
+import client.KVCommInterface;
+import common.messages.KVMessage;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-public class SendCommand implements Command {
+public class PutCommand implements Command {
 
     /** ID of this command. */
-    public static final String ID = "send";
+    public static final String ID = "put";
 
-    private String message;
+    private String key;
+    private String value;
 
     /** {@inheritDoc} */
     @Override
@@ -22,40 +24,43 @@ public class SendCommand implements Command {
 
     /** {@inheritDoc} */
     @Override
-    public List<Command.Argument> getArguments() {
+    public List<Argument> getArguments() {
         return Arrays.asList(
-                new Command.Argument("message", "Message to send. Must be quoted if it contains spaces.")
+                new Argument("key", "Unique key of the information."),
+                new Argument("value", "Value of the information.")
         );
     }
 
     /** {@inheritDoc} */
     @Override
     public String getDescription() {
-        return "Send message to server and get reply";
+        return "Store value to the server's storage";
     }
 
     /** {@inheritDoc} */
     @Override
     public void init(String[] args) throws CommandException {
         // host name
-        if (args.length != 1) {
+        if (args.length != 2) {
             throw new CommandException("Wrong number of arguments", this);
         }
-        this.message = args[0];
+        this.key = args[0];
+        this.value = args[1];
     }
 
     /** {@inheritDoc} */
     @Override
     public String run(KVClient cli) throws CommandException {
-        Client client = cli.getClient();
+        KVCommInterface client = cli.getClient();
 
-        if (!client.isConnected()) {
+        if (client == null) {
             throw new CommandException("Not connected.", this);
         }
 
         String reply = null;
         try {
-            reply = client.sendMessage(message);
+            KVMessage serverReply = client.put(key,value);
+            reply = serverReply.toString();
         } catch (IOException e) {
             throw new CommandException("Could not send message.", this, e);
         }
