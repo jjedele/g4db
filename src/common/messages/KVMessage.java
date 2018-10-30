@@ -4,15 +4,15 @@ public interface KVMessage {
 
     enum StatusType {
         GET((byte) 0x0), 			/* Get - request */  //$ finish testing
-        GET_ERROR((byte) 0x1), 		/* requested tuple (i.e. value) not found */    //$not clear if it send only <key> or <value> or both to client
-        GET_SUCCESS((byte) 0x2), 	/* requested tuple (i.e. value) found */   //$not clear
+        GET_ERROR((byte) 0x1), 		/* requested tuple (i.e. value) not found */  //$ finish testing
+        GET_SUCCESS((byte) 0x2), 	/* requested tuple (i.e. value) found */  //$ finish testing
         PUT((byte) 0x3), 			/* Put - request */  //$ finish testing
         PUT_SUCCESS((byte) 0x4), 	/* Put - request successful, tuple inserted */  //$ finish testing
         PUT_UPDATE((byte) 0x5), 	/* Put - request successful, i.e. value updated */ //$ finish testing
-        PUT_ERROR((byte) 0x6), 		/* Put - request not successful */
-        DELETE((byte) 0x7), 		/* Delete - request */
+        PUT_ERROR((byte) 0x6), 		/* Put - request not successful */  //$ finish testing
+        DELETE((byte) 0x7), 		/* Delete - request */  //$ finish testing
         DELETE_SUCCESS((byte) 0x8), /* Delete - request successful */ //$ finish testing
-        DELETE_ERROR((byte) 0x9); 	/* Delete - request successful */
+        DELETE_ERROR((byte) 0x9); 	/* Delete - request successful */  //$ finish testing
 
         public final byte opCode;
 
@@ -57,6 +57,14 @@ public interface KVMessage {
     public StatusType putSuccessStatus();
 
 
+    //PUT_ERROR
+    public String putErrorKey();
+
+    public String putErrorValue();
+
+    public StatusType putErrorStatus();
+
+
     //PUT_UPDATE
     public String putUpdateKey();
 
@@ -65,12 +73,44 @@ public interface KVMessage {
     public StatusType putUpdateStatus();
 
 
+    //GET_ERROR
+    public String getErrorKey();
+
+    public String getErrorValue();
+
+    public StatusType getErrorStatus();
+
+
+    //GET_SUCCESS
+    public String getSuccessKey();
+
+    public String getSuccessValue();
+
+    public StatusType getSuccessStatus();
+
+
+    //DELETE
+    public String deleteKey();
+
+    public String deleteValue();
+
+    public StatusType deleteStatus();
+
+
     //DELETE_SUCCESS
-    public String DeleteSuccessKey();
+    public String deleteSuccessKey();
 
-    public String DeleteSuccessValue();
+    public String deleteSuccessValue();
 
-    public StatusType DeleteSuccessStatus();
+    public StatusType deleteSuccessStatus();
+
+
+    //DELETE_ERROR
+    public String deleteErrorKey();
+
+    public String deleteErrorValue();
+
+    public StatusType deleteErrorStatus();
 
 
 }

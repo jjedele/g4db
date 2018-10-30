@@ -106,6 +106,30 @@ public class DefaultKVMessage implements KVMessage {
     }
 
 
+    //PUT_ERROR
+    @Override
+    public String putErrorKey() {
+        return key;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String putErrorValue() {
+        return value;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public StatusType putErrorStatus() {
+        return status;
+    }
+
+
+
     //PUT_UPDATE
     /**
      * {@inheritDoc}
@@ -129,26 +153,123 @@ public class DefaultKVMessage implements KVMessage {
         return status;
     }
 
-    //DELETE_SUCCESS
+    //GET_ERROR
     /**
      * {@inheritDoc}
      */
     @Override
-    public String DeleteSuccessKey() {
+    public String getErrorKey() {
         return key;
     }
     /**
      * {@inheritDoc}
      */
     @Override
-    public String DeleteSuccessValue() {
+    public String getErrorValue() {
         return value;
     }
     /**
      * {@inheritDoc}
      */
     @Override
-    public StatusType DeleteSuccessStatus() {
+    public StatusType getErrorStatus() {
+        return status;
+    }
+
+
+    //GET_SUCCESS
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String getSuccessKey() {
+        return key;
+    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String getSuccessValue() {
+        return value;
+    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public StatusType getSuccessStatus() {
+        return status;
+    }
+
+
+    //DELETE
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String deleteKey() {
+        return key;
+    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String deleteValue() {
+        return value;
+    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public StatusType deleteStatus() {
+        return status;
+    }
+
+
+
+    //DELETE_SUCCESS
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String deleteSuccessKey() {
+        return key;
+    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String deleteSuccessValue() {
+        return value;
+    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public StatusType deleteSuccessStatus() {
+        return status;
+    }
+
+
+    //DELETE_ERROR
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String deleteErrorKey() {
+        return key;
+    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String deleteErrorValue() {
+        return value;
+    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public StatusType deleteErrorStatus() {
         return status;
     }
 
