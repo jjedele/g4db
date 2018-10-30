@@ -1,7 +1,8 @@
 package app_kvClient.commands;
 
 import app_kvClient.KVClient;
-import client.Client;
+import client.KVCommInterface;
+import client.KVStore;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -61,15 +62,16 @@ public class ConnectCommand implements Command {
     /** {@inheritDoc} */
     @Override
     public String run(KVClient cli) throws CommandException {
-        Client client = cli.getClient();
+        String result = null;
 
-        if (client.isConnected()) {
-            throw new CommandException("Already connected.", this);
+        if (cli.getClient() != null) {
+            throw new CommandException("There already is a connection", this);
         }
 
-        String result = null;
         try {
-            result = client.connect(host, port);
+            KVCommInterface client = new KVStore(host, port);
+            cli.setClient(client);
+            client.connect();
         } catch (IOException e) {
             throw new CommandException("Could not connect socket.", this, e);
         }

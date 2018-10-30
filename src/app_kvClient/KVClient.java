@@ -1,8 +1,7 @@
 package app_kvClient;
 
 import app_kvClient.commands.*;
-import client.Client;
-import client.SocketClient;
+import client.KVCommInterface;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -20,7 +19,7 @@ public class KVClient {
 
     private static final Logger LOG = LogManager.getLogger(KVClient.class);
 
-    private Client client;
+    private KVCommInterface client;
     private boolean exiting;
     private final Map<String, Class<? extends Command>> commands;
 
@@ -72,7 +71,6 @@ public class KVClient {
      * Default constructor.
      */
     public KVClient() {
-        this.client = new SocketClient();
         this.exiting = false;
 
         // TODO: at some point we could use reflection for this
@@ -170,11 +168,19 @@ public class KVClient {
     }
 
     /**
-     * Get the {@link Client} associated with this KVClient.
+     * Get the {@link KVCommInterface} associated with this KVClient.
      * @return The client
      */
-    public Client getClient() {
+    public KVCommInterface getClient() {
         return client;
+    }
+
+    /**
+     * Set the {@link KVCommInterface} associated with this KVClient.
+     * @param client The client
+     */
+    public void setClient(KVCommInterface client) {
+        this.client = client;
     }
 
     /**
@@ -183,9 +189,6 @@ public class KVClient {
      */
     public String getPrompt() {
         StringBuilder builder = new StringBuilder("EchoClient");
-        if (client.isConnected()) {
-            builder.append(" (connected)");
-        }
         builder.append("> ");
         return builder.toString();
     }

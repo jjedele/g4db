@@ -52,7 +52,7 @@ public class DefaultKVMessage implements KVMessage {
      */
     @Override
     public String toString() {
-        return String.format("<%s, %s, %d>", key, value, status);
+        return String.format("<%s, %s, %s>", key, value, status);
     }
 
 }

@@ -2,14 +2,16 @@ package client;
 
 import common.messages.KVMessage;
 
+import java.io.IOException;
+
 public interface KVCommInterface {
 
     /**
      * Establishes a connection to the KV Server.
      *
-     * @throws Exception if connection could not be established.
+     * @throws IOException if connection could not be established.
      */
-    public void connect() throws Exception;
+    public void connect() throws IOException;
 
     /**
      * disconnects the client from the currently connected server.
@@ -22,18 +24,18 @@ public interface KVCommInterface {
      * @param key   the key that identifies the given value.
      * @param value the value that is indexed by the given key.
      * @return a message that confirms the insertion of the tuple or an error.
-     * @throws Exception if put command cannot be executed (e.g. not connected to any
+     * @throws IOException if put command cannot be executed (e.g. not connected to any
      *                   KV server).
      */
-    public KVMessage put(String key, String value) throws Exception;
+    public KVMessage put(String key, String value) throws IOException;
 
     /**
      * Retrieves the value for a given key from the KVServer.
      *
      * @param key the key that identifies the value.
      * @return the value, which is indexed by the given key.
-     * @throws Exception if put command cannot be executed (e.g. not connected to any
+     * @throws IOException if put command cannot be executed (e.g. not connected to any
      *                   KV server).
      */
-    public KVMessage get(String key) throws Exception;
+    public KVMessage get(String key) throws IOException;
 }
