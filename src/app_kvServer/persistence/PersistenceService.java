@@ -1,5 +1,8 @@
 package app_kvServer.persistence;
 
+import java.io.FileNotFoundException;
+import java.io.IOException;
+
 /**
  * Base interface for the persistence service.
  */
@@ -11,7 +14,7 @@ public interface PersistenceService {
      * @param value the value
      * @throws PersistenceException if something goes wrong while persisting
      */
-    void persist(String key, String value) throws PersistenceException;
+    void persist(String key, String value) throws PersistenceException, IOException;
 
     /**
      * Retrieve the value associated with key.
@@ -19,6 +22,6 @@ public interface PersistenceService {
      * @return the value
      * @throws PersistenceException if something goes wrong while getting the value
      */
-    String get(String key) throws PersistenceException;
+    String get(String key) throws PersistenceException, IOException;
 
 }

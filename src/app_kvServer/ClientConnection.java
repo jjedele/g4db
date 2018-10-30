@@ -91,7 +91,7 @@ public class ClientConnection implements Runnable {
         this.terminated.set(true);
     }
 
-    private byte[] handleMessage(byte[] payload) throws ProtocolException, PersistenceException {
+    private byte[] handleMessage(byte[] payload) throws ProtocolException, PersistenceException, IOException {
         // TODO: this must be extended as soon we have implemented the full wire protocol
         KVMessage message = Protocol.decode(payload);
 
