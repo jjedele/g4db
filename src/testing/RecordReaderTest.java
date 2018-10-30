@@ -11,13 +11,14 @@ public class RecordReaderTest extends TestCase {
 
     @Test
     public void testSplittingSmallData() throws IOException {
-        byte[] data = "hello\nworld\nfoo\nbar\n".getBytes();
+        byte[] data = "hello\nworld\nfoo\nbar\n\n".getBytes();
         RecordReader reader = new RecordReader(data, (byte) '\n');
 
         assertEquals("hello", new String(reader.read()));
         assertEquals("world", new String(reader.read()));
         assertEquals("foo", new String(reader.read()));
         assertEquals("bar", new String(reader.read()));
+        assertEquals("", new String(reader.read()));
         assertNull(reader.read());
     }
 

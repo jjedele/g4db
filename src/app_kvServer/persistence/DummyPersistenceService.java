@@ -26,9 +26,11 @@ public class DummyPersistenceService implements PersistenceService {
     }
 
     @Override
-    public void persist(String key, String value) throws PersistenceException {
+    public boolean persist(String key, String value) throws PersistenceException {
         LOG.info("Persist called: {} -> {}", key, value);
+        boolean insert = !map.containsKey(key);
         map.put(key, value);
+        return insert;
     }
 
     @Override
@@ -40,4 +42,22 @@ public class DummyPersistenceService implements PersistenceService {
             throw new PersistenceException(String.format("Key %s not found.", key));
         }
     }
+
+    @Override
+    public void delete(String key) throws PersistenceException {
+        LOG.info("Delete called: {}", key);
+        if (map.containsKey(key)) {
+            map.remove(key);
+        } else {
+            throw new PersistenceException(String.format("Key %s not found.", key));
+        }
+    }
+
+    @Override
+    public boolean contains(String key) throws PersistenceException {
+        LOG.info("Contains called: {}", key);
+        return map.containsKey(key);
+    }
+
+
 }

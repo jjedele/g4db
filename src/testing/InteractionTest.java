@@ -26,7 +26,7 @@ public class InteractionTest extends TestCase {
 
     @Test
     public void testPut() {
-        String key = "foo";
+        String key = "foo" + System.currentTimeMillis();
         String value = "bar";
         KVMessage response = null;
         Exception ex = null;
@@ -68,7 +68,6 @@ public class InteractionTest extends TestCase {
         try {
             kvClient.put(key, initialValue);
             response = kvClient.put(key, updatedValue);
-
         } catch (Exception e) {
             ex = e;
         }
@@ -88,7 +87,6 @@ public class InteractionTest extends TestCase {
         try {
             kvClient.put(key, value);
             response = kvClient.put(key, "null");
-
         } catch (Exception e) {
             ex = e;
         }
