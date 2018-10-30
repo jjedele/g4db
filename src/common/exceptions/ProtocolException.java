@@ -1,6 +1,6 @@
 package common.exceptions;
 
-public class ProtocolException extends Exception {
+public class ProtocolException extends CommunicationException {
 
     /**
      * {@inheritDoc}
