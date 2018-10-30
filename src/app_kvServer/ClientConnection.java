@@ -96,7 +96,7 @@ public class ClientConnection implements Runnable {
         KVMessage message = Protocol.decode(payload);
 
         if (message.getStatus() == KVMessage.StatusType.PUT) {
-            persistenceService.persist(message.getKey(), message.getValue());
+            persistenceService.put(message.getKey(), message.getValue());
             KVMessage response = new DefaultKVMessage(
                     message.getKey(),
                     message.getValue(),

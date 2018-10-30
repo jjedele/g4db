@@ -1,10 +1,20 @@
 package app_kvServer.persistence;
 
-import javax.xml.validation.Validator;
 import java.util.*;
 
-public class LRUCache<K,V> {
-    public class FrequencyNode {
+/**
+ * This is an implementation of a all-operation O(1) LFU cache
+ * as proposed by Shah et al.
+ *
+ * See:
+ * Shah, K., Mitra, A., & Matani, D. (2010).
+ * An O(1) algorithm for implementing the LFU cache eviction scheme, (1), 1–8.
+ *
+ * @param <K> Type of the keys
+ * @param <V> Type of the values
+ */
+public class LFUCache<K,V>  implements Cache<K, V> {
+    private class FrequencyNode {
 
         public final long value;
         public final Set<K> items;
@@ -47,12 +57,13 @@ public class LRUCache<K,V> {
     private final Map<K, ValueNode> byKey;
     private final FrequencyNode frequencyHead;
 
-    public LRUCache(int cacheSize) {
+    public LFUCache(int cacheSize) {
         this.cacheSize = cacheSize;
         this.byKey = new HashMap<K, ValueNode>();
         this.frequencyHead = new FrequencyNode(0);
     }
 
+    @Override
     public V get(K key) {
         ValueNode valueNode = byKey.get(key);
 
@@ -64,6 +75,7 @@ public class LRUCache<K,V> {
         return valueNode.data;
     }
 
+    @Override
     public void put(K key, V value) {
         ValueNode valueNode = byKey.get(key);
 
@@ -89,7 +101,8 @@ public class LRUCache<K,V> {
         }
     }
 
-    public void remove(K key){
+    @Override
+    public void delete(K key){
         ValueNode valueNode = byKey.get(key);
 
         if (valueNode == null){
@@ -106,6 +119,7 @@ public class LRUCache<K,V> {
         byKey.remove(key);
     }
 
+    @Override
     public boolean contains(K key) {
         return byKey.containsKey(key);
     }
@@ -134,19 +148,8 @@ public class LRUCache<K,V> {
         }
 
         K target = frequencyHead.next.items.iterator().next();
-        remove(target);
+        delete(target);
         System.out.println("Ejected: " + target);
     }
 
-    public static void main(String[] args) {
-        LRUCache<String, String> cache = new LRUCache<String, String>(2);
-        cache.put("first", "2");
-        cache.put("second", "1");
-
-        cache.put("third", "3");
-
-        assert !cache.contains("bar");
-        assert cache.contains("foo");
-        assert cache.contains("baz");
-    }
 }

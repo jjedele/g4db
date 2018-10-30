@@ -9,14 +9,14 @@ import java.io.IOException;
 public interface PersistenceService {
 
     /**
-     * Take a key,value-pair and persist it to disk.
+     * Take a key,value-pair and put it to disk.
      * @param key the key
      * @param value the value
      * @return true if the key was inserted, false if it was updated
      * @throws PersistenceException if something goes wrong while persisting
      */
 
-    boolean persist(String key, String value) throws PersistenceException;
+    boolean put(String key, String value) throws PersistenceException;
     /**
      * Retrieve the value associated with key.
      * @param key the key to retrieve the value for
