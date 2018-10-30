@@ -5,8 +5,6 @@ import app_kvServer.KVServer;
 import junit.framework.Test;
 import junit.framework.TestSuite;
 
-import java.io.IOException;
-
 
 public class AllTests {
 
@@ -23,6 +21,7 @@ public class AllTests {
         clientSuite.addTestSuite(ConnectionTest.class);
         clientSuite.addTestSuite(InteractionTest.class);
         clientSuite.addTestSuite(AdditionalTest.class);
+        clientSuite.addTestSuite(RecordReaderTest.class);
         return clientSuite;
     }
 
