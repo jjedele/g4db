@@ -44,10 +44,9 @@ public final class Protocol {
             byte[] valueData = message.putValue().getBytes(StandardCharsets.UTF_8);
             bos.write(valueData, 0, valueData.length);
             bos.write(UNIT_SEPARATOR);
-        }
 
         //Get
-        if (message.getStatus() == KVMessage.StatusType.GET) {
+        } (message.getStatus() == KVMessage.StatusType.GET) {
             // op code
             bos.write(KVMessage.StatusType.GET.opCode);
 
@@ -56,14 +55,13 @@ public final class Protocol {
             bos.write(keyData, 0, keyData.length);
             bos.write(UNIT_SEPARATOR);
 
-            // value
-//            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
-//            bos.write(valueData, 0, valueData.length);
-//            bos.write(UNIT_SEPARATOR);
-        }
+            //value
+          byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
+          bos.write(valueData, 0, valueData.length);
+          bos.write(UNIT_SEPARATOR);
 
         //PUT_SUCCESS
-        if (message.getStatus() == KVMessage.StatusType.PUT_SUCCESS) {
+        }else if (message.getStatus() == KVMessage.StatusType.PUT_SUCCESS) {
             // op code
             bos.write(KVMessage.StatusType.PUT_SUCCESS.opCode);
 
@@ -76,10 +74,9 @@ public final class Protocol {
             byte[] valueData = message.putSuccessValue().getBytes(StandardCharsets.UTF_8);
             bos.write(valueData, 0, valueData.length);
             bos.write(UNIT_SEPARATOR);
-        }
 
         //PUT_UPDATE
-        if (message.getStatus() == KVMessage.StatusType.PUT_UPDATE ) {
+        }else if (message.getStatus() == KVMessage.StatusType.PUT_UPDATE ) {
             // op code
             bos.write(KVMessage.StatusType.PUT_UPDATE.opCode);
 
@@ -92,10 +89,9 @@ public final class Protocol {
             byte[] valueData = message.putUpdateValue().getBytes(StandardCharsets.UTF_8);
             bos.write(valueData, 0, valueData.length);
             bos.write(UNIT_SEPARATOR);
-        }
 
         // DELETE_SUCCESS
-        if (message.getStatus() == KVMessage.StatusType.DELETE_SUCCESS) {
+        }else if (message.getStatus() == KVMessage.StatusType.DELETE_SUCCESS) {
             // op code
             bos.write(KVMessage.StatusType.DELETE_SUCCESS.opCode);
 
@@ -108,6 +104,8 @@ public final class Protocol {
             byte[] valueData = message.DeleteSuccessValue().getBytes(StandardCharsets.UTF_8);
             bos.write(valueData, 0, valueData.length);
             bos.write(UNIT_SEPARATOR);
+        }else{
+
         }
 
         return bos.toByteArray();
