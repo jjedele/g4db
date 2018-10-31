@@ -36,12 +36,12 @@ public final class Protocol {
             bos.write(KVMessage.StatusType.PUT.opCode);
 
             // key
-            byte[] keyData = message.putKey().getBytes(StandardCharsets.UTF_8);
+            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
             bos.write(keyData, 0, keyData.length);
             bos.write(UNIT_SEPARATOR);
 
             // value
-            byte[] valueData = message.putValue().getBytes(StandardCharsets.UTF_8);
+            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
             bos.write(valueData, 0, valueData.length);
             bos.write(UNIT_SEPARATOR);
 
@@ -51,12 +51,12 @@ public final class Protocol {
             bos.write(KVMessage.StatusType.PUT_SUCCESS.opCode);
 
             // key
-            byte[] keyData = message.putSuccessKey().getBytes(StandardCharsets.UTF_8);
+            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
             bos.write(keyData, 0, keyData.length);
             bos.write(UNIT_SEPARATOR);
 
             // value
-            byte[] valueData = message.putSuccessValue().getBytes(StandardCharsets.UTF_8);
+            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
             bos.write(valueData, 0, valueData.length);
             bos.write(UNIT_SEPARATOR);
 
@@ -66,12 +66,12 @@ public final class Protocol {
             bos.write(KVMessage.StatusType.PUT_ERROR.opCode);
 
             // key
-            byte[] keyData = message.putErrorKey().getBytes(StandardCharsets.UTF_8);
+            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
             bos.write(keyData, 0, keyData.length);
             bos.write(UNIT_SEPARATOR);
 
             // value
-            byte[] valueData = message.putErrorValue().getBytes(StandardCharsets.UTF_8);
+            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
             bos.write(valueData, 0, valueData.length);
             bos.write(UNIT_SEPARATOR);
 
@@ -81,12 +81,12 @@ public final class Protocol {
             bos.write(KVMessage.StatusType.PUT_UPDATE.opCode);
 
             // key
-            byte[] keyData = message.putUpdateKey().getBytes(StandardCharsets.UTF_8);
+            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
             bos.write(keyData, 0, keyData.length);
             bos.write(UNIT_SEPARATOR);
 
             // value
-            byte[] valueData = message.putUpdateValue().getBytes(StandardCharsets.UTF_8);
+            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
             bos.write(valueData, 0, valueData.length);
             bos.write(UNIT_SEPARATOR);
 
@@ -141,12 +141,12 @@ public final class Protocol {
             bos.write(KVMessage.StatusType.DELETE.opCode);
 
             // key
-            byte[] keyData = message.deleteKey().getBytes(StandardCharsets.UTF_8);
+            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
             bos.write(keyData, 0, keyData.length);
             bos.write(UNIT_SEPARATOR);
 
             // value
-            byte[] valueData = message.deleteValue().getBytes(StandardCharsets.UTF_8);
+            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
             bos.write(valueData, 0, valueData.length);
             bos.write(UNIT_SEPARATOR);
 
@@ -156,12 +156,12 @@ public final class Protocol {
             bos.write(KVMessage.StatusType.DELETE_SUCCESS.opCode);
 
             // key
-            byte[] keyData = message.deleteSuccessKey().getBytes(StandardCharsets.UTF_8);
+            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
             bos.write(keyData, 0, keyData.length);
             bos.write(UNIT_SEPARATOR);
 
             // value
-            byte[] valueData = message.deleteSuccessValue().getBytes(StandardCharsets.UTF_8);
+            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
             bos.write(valueData, 0, valueData.length);
             bos.write(UNIT_SEPARATOR);
 
@@ -171,16 +171,17 @@ public final class Protocol {
             bos.write(KVMessage.StatusType.DELETE_ERROR.opCode);
 
             // key
-            byte[] keyData = message.deleteErrorKey().getBytes(StandardCharsets.UTF_8);
+            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
             bos.write(keyData, 0, keyData.length);
             bos.write(UNIT_SEPARATOR);
 
             // value
-            byte[] valueData = message.deleteErrorValue().getBytes(StandardCharsets.UTF_8);
+            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
             bos.write(valueData, 0, valueData.length);
             bos.write(UNIT_SEPARATOR);
 
         }else{
+            throw new AssertionError("Please enter a valid status type");
 
         }
 

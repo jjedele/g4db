@@ -16,9 +16,9 @@ public class ProtocolTest extends TestCase {
 
         KVMessage msg2 = Protocol.decode(payload);
 
-        assertEquals(msg.putKey(), msg2.putValue());
-        assertEquals(msg.putValue(), msg2.putValue());
-        assertEquals(msg.putStatus(), msg2.putStatus());
+        assertEquals(msg.getKey(), msg2.getKey());
+        assertEquals(msg.getValue(), msg2.getValue());
+        assertEquals(msg.getStatus(), msg2.getStatus());
     }
 
     // PUT_SUCCESS
@@ -29,9 +29,9 @@ public class ProtocolTest extends TestCase {
 
         KVMessage msg2 = Protocol.decode(payload);
 
-        assertEquals(msg.putSuccessKey(), msg2.putSuccessKey());
-        assertEquals(msg.putSuccessValue(), msg2.putSuccessValue());
-        assertEquals(msg.putSuccessStatus(), msg2.putSuccessStatus());
+        assertEquals(msg.getKey(), msg2.getKey());
+        assertEquals(msg.getValue(), msg2.getValue());
+        assertEquals(msg.getStatus(), msg2.getStatus());
     }
 
     // PUT_ERROR
@@ -42,9 +42,9 @@ public class ProtocolTest extends TestCase {
 
         KVMessage msg2 = Protocol.decode(payload);
 
-        assertEquals(msg.putErrorKey(), msg2.putErrorKey());
-        assertEquals(msg.putErrorValue(), msg2.putErrorValue());
-        assertEquals(msg.putErrorStatus(), msg2.putErrorStatus());
+        assertEquals(msg.getKey(), msg2.getKey());
+        assertEquals(msg.getValue(), msg2.getValue());
+        assertEquals(msg.getStatus(), msg2.getStatus());
     }
 
     // PUT_UPDATE
@@ -55,9 +55,9 @@ public class ProtocolTest extends TestCase {
 
         KVMessage msg2 = Protocol.decode(payload);
 
-        assertEquals(msg.putUpdateKey(), msg2.putUpdateKey());
-        assertEquals(msg.putUpdateValue(), msg2.putUpdateValue());
-        assertEquals(msg.putUpdateStatus(), msg2.putUpdateStatus());
+        assertEquals(msg.getKey(), msg2.getKey());
+        assertEquals(msg.getValue(), msg2.getValue());
+        assertEquals(msg.getStatus(), msg2.getStatus());
     }
 
     //GET
@@ -81,9 +81,9 @@ public class ProtocolTest extends TestCase {
 
         KVMessage msg2 = Protocol.decode(payload);
 
-        assertEquals(msg.getErrorKey(), msg2.getErrorKey());
-        assertEquals(msg.getErrorValue(), msg2.getErrorValue());
-        assertEquals(msg.getErrorStatus(), msg2.getErrorStatus());
+        assertEquals(msg.getKey(), msg2.getKey());
+        assertEquals(msg.getValue(), msg2.getValue());
+        assertEquals(msg.getStatus(), msg2.getStatus());
     }
 
     //GET_SUCCESS
@@ -94,9 +94,9 @@ public class ProtocolTest extends TestCase {
 
         KVMessage msg2 = Protocol.decode(payload);
 
-        assertEquals(msg.getSuccessKey(), msg2.getSuccessKey());
-        assertEquals(msg.getSuccessValue(), msg2.getSuccessValue());
-        assertEquals(msg.getSuccessStatus(), msg2.getSuccessStatus());
+        assertEquals(msg.getKey(), msg2.getKey());
+        assertEquals(msg.getValue(), msg2.getValue());
+        assertEquals(msg.getStatus(), msg2.getStatus());
     }
 
     // DELETE
@@ -107,9 +107,9 @@ public class ProtocolTest extends TestCase {
 
         KVMessage msg2 = Protocol.decode(payload);
 
-        assertEquals(msg.deleteKey(), msg2.deleteKey());
-        assertEquals(msg.deleteValue(), msg2.deleteValue());
-        assertEquals(msg.deleteStatus(), msg2.deleteStatus());
+        assertEquals(msg.getKey(), msg2.getKey());
+        assertEquals(msg.getValue(), msg2.getValue());
+        assertEquals(msg.getStatus(), msg2.getStatus());
     }
 
     // DELETE_SUCCESS
@@ -120,9 +120,9 @@ public class ProtocolTest extends TestCase {
 
         KVMessage msg2 = Protocol.decode(payload);
 
-        assertEquals(msg.deleteSuccessKey(), msg2.deleteSuccessKey());
-        assertEquals(msg.deleteSuccessValue(), msg2.deleteSuccessValue());
-        assertEquals(msg.deleteSuccessStatus(), msg2.deleteSuccessStatus());
+        assertEquals(msg.getKey(), msg2.getKey());
+        assertEquals(msg.getValue(), msg2.getValue());
+        assertEquals(msg.getStatus(), msg2.getStatus());
     }
 
     // DELETE_ERROR
@@ -133,9 +133,9 @@ public class ProtocolTest extends TestCase {
 
         KVMessage msg2 = Protocol.decode(payload);
 
-        assertEquals(msg.deleteErrorKey(), msg2.deleteErrorKey());
-        assertEquals(msg.deleteErrorValue(), msg2.deleteErrorValue());
-        assertEquals(msg.deleteErrorStatus(), msg2.deleteErrorStatus());
+        assertEquals(msg.getKey(), msg2.getKey());
+        assertEquals(msg.getValue(), msg2.getValue());
+        assertEquals(msg.getStatus(), msg2.getStatus());
     }
 
 }
