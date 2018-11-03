@@ -72,6 +72,7 @@ public class KVStore implements KVCommInterface {
     @Override
     public KVMessage put(String key, String value) throws IOException {
         // not my preferred API, but we want to match the interface
+
         if (value == null || "null".equals(value)) {
             return delete(key);
         }
@@ -154,11 +155,17 @@ public class KVStore implements KVCommInterface {
         KVStore client = new KVStore("localhost", 12345);
         client.connect();
 
-        KVMessage reply = client.put("foo", "bar");
-        System.out.println(reply);
+        try {
+            KVMessage reply = client.put("foo", "bar");
+            System.out.println(reply);
 
-        reply = client.get("boom");
-        System.out.println(reply);
+            reply = client.get("boom");
+            System.out.println(reply);
+
+        } catch (IOException e) {
+            LOG.error("Can not get key.", e);
+
+        }
 
         client.disconnect();
     }

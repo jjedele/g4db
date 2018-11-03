@@ -79,7 +79,8 @@ public class KVClient {
         this.commands.put(ConnectCommand.ID, ConnectCommand.class);
         this.commands.put(DisconnectCommand.ID, DisconnectCommand.class);
         this.commands.put(HelpCommand.ID, HelpCommand.class);
-        this.commands.put(SendCommand.ID, SendCommand.class);
+        this.commands.put(PutCommand.ID, PutCommand.class);
+        this.commands.put(GetCommand.ID, GetCommand.class);
         this.commands.put(SetLogLevelCommand.ID, SetLogLevelCommand.class);
     }
 
