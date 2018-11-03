@@ -46,10 +46,12 @@ public class CachedDiskStorage implements PersistenceService {
      */
     @Override
     public synchronized boolean put(String key, String value) throws PersistenceException {
+        boolean insert = !cache.contains(key) && !diskStorage.contains(key);
+
         diskStorage.put(key, value);
         cache.put(key, value);
 
-        return diskStorage.contains(key) && cache.contains(key);
+        return insert;
     }
 
     /**
