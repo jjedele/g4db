@@ -3,13 +3,22 @@ package app_kvServer.persistence;
 import app_kvServer.CacheReplacementStrategy;
 
 import java.io.File;
-import java.io.IOException;
 
+/**
+ * Persists values directly to disk and maintains a configurable
+ * cache for faster retrievals.
+ */
 public class CachedDiskStorage implements PersistenceService {
 
     private final Cache<String, String> cache;
     private final PersistenceService diskStorage;
 
+    /**
+     * Default constructor.
+     * @param dataDirectory The directory where data files are stored
+     * @param cacheSize Number of elements the cache can hold
+     * @param replacementStrategy Displacement strategy for the cache
+     */
     public CachedDiskStorage(File dataDirectory, int cacheSize, CacheReplacementStrategy replacementStrategy) {
         this.diskStorage = new DiskStorage(dataDirectory);
         switch (replacementStrategy) {
@@ -30,6 +39,9 @@ public class CachedDiskStorage implements PersistenceService {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean put(String key, String value) throws PersistenceException {
         diskStorage.put(key, value);
@@ -38,18 +50,27 @@ public class CachedDiskStorage implements PersistenceService {
         return diskStorage.contains(key) && cache.contains(key);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public String get(String key) throws PersistenceException, IOException {
+    public String get(String key) throws PersistenceException {
         if (cache.contains(key)) return cache.get(key);
         return diskStorage.get(key);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void delete(String key) throws PersistenceException {
         diskStorage.delete(key);
         cache.delete(key);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean contains(String key) throws PersistenceException {
         return cache.contains(key) || diskStorage.contains(key);

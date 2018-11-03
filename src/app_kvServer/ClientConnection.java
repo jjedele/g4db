@@ -135,7 +135,7 @@ public class ClientConnection implements Runnable {
 
         try {
             // TODO handle update update separately
-            boolean insert = persistenceService.persist(
+            boolean insert = persistenceService.put(
                     msg.getKey(),
                     msg.getValue());
 

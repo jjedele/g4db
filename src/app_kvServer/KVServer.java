@@ -1,11 +1,12 @@
 package app_kvServer;
 
 
-import app_kvServer.persistence.DummyPersistenceService;
+import app_kvServer.persistence.CachedDiskStorage;
 import app_kvServer.persistence.PersistenceService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -18,6 +19,7 @@ public class KVServer implements Runnable, SessionRegistry {
 
     private final int port;
     private final int cacheSize;
+    private final File dataDirectory;
     private final CacheReplacementStrategy cacheStrategy;
     private final Set<ClientConnection> activeSessions;
 
@@ -77,6 +79,9 @@ public class KVServer implements Runnable, SessionRegistry {
         this.cacheSize = cacheSize;
         this.cacheStrategy = cacheStrategy;
         this.activeSessions = new HashSet<>();
+
+        // TODO make data directory configurable
+        this.dataDirectory = new File("./data");
     }
 
     /**
@@ -86,7 +91,8 @@ public class KVServer implements Runnable, SessionRegistry {
     public void run() {
         // TODO handle errors more gracefully
         try {
-            PersistenceService persistenceService = new DummyPersistenceService(cacheSize, cacheStrategy);
+            PersistenceService persistenceService =
+                    new CachedDiskStorage(dataDirectory, cacheSize, cacheStrategy);
 
             ServerSocket serverSocket = new ServerSocket(port);
             LOG.info("Server listening on port {}.", port);

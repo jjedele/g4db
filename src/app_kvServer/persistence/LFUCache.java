@@ -1,5 +1,8 @@
 package app_kvServer.persistence;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.*;
 
 /**
@@ -14,6 +17,10 @@ import java.util.*;
  * @param <V> Type of the values
  */
 public class LFUCache<K,V>  implements Cache<K, V> {
+
+    private static final Logger LOG = LogManager.getLogger(LFUCache.class);
+
+    // represents a class of elements with the same usage counter
     private class FrequencyNode {
 
         public final long value;
@@ -21,7 +28,7 @@ public class LFUCache<K,V>  implements Cache<K, V> {
         public FrequencyNode previous;
         public FrequencyNode next;
 
-        public FrequencyNode(long value, FrequencyNode predecessor) {
+        FrequencyNode(long value, FrequencyNode predecessor) {
             this(value);
             previous = predecessor;
             next = predecessor.next;
@@ -29,25 +36,26 @@ public class LFUCache<K,V>  implements Cache<K, V> {
             predecessor.next = this;
         }
 
-        public FrequencyNode(long value) {
+        FrequencyNode(long value) {
             this.value = value;
-            this.items = new HashSet<K>();
+            this.items = new HashSet<>();
             previous = this;
             next = this;
         }
 
-        public void unlink() {
+        void unlink() {
             previous.next = next;
             next.previous = previous;
         }
     }
 
+    // a element within a class of a certain usage count
     private class ValueNode {
 
         public V data;
         public FrequencyNode parent;
 
-        public ValueNode(V data, FrequencyNode parent) {
+        ValueNode(V data, FrequencyNode parent) {
             this.data = data;
             this.parent = parent;
         }
@@ -57,12 +65,19 @@ public class LFUCache<K,V>  implements Cache<K, V> {
     private final Map<K, ValueNode> byKey;
     private final FrequencyNode frequencyHead;
 
+    /**
+     * Default constructor.
+     * @param cacheSize Number of elements to hold
+     */
     public LFUCache(int cacheSize) {
         this.cacheSize = cacheSize;
-        this.byKey = new HashMap<K, ValueNode>();
+        this.byKey = new HashMap<>();
         this.frequencyHead = new FrequencyNode(0);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public V get(K key) {
         ValueNode valueNode = byKey.get(key);
@@ -75,6 +90,9 @@ public class LFUCache<K,V>  implements Cache<K, V> {
         return valueNode.data;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void put(K key, V value) {
         ValueNode valueNode = byKey.get(key);
@@ -101,6 +119,9 @@ public class LFUCache<K,V>  implements Cache<K, V> {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void delete(K key){
         ValueNode valueNode = byKey.get(key);
@@ -119,6 +140,9 @@ public class LFUCache<K,V>  implements Cache<K, V> {
         byKey.remove(key);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean contains(K key) {
         return byKey.containsKey(key);
@@ -149,7 +173,8 @@ public class LFUCache<K,V>  implements Cache<K, V> {
 
         K target = frequencyHead.next.items.iterator().next();
         delete(target);
-        System.out.println("Ejected: " + target);
+
+        LOG.debug("Ejected element: {}", target);
     }
 
 }
