@@ -62,7 +62,7 @@ public class ProtocolTest extends TestCase {
 
     //GET
     public void testEncodeDecodeGet() throws ProtocolException {
-        KVMessage msg = new DefaultKVMessage("foo", "bar", KVMessage.StatusType.GET);
+        KVMessage msg = new DefaultKVMessage("foo", null, KVMessage.StatusType.GET);
 
         byte[] payload = Protocol.encode(msg);
 
@@ -101,7 +101,7 @@ public class ProtocolTest extends TestCase {
 
     // DELETE
     public void testEncodeDecodeDelete() throws ProtocolException {
-        KVMessage msg = new DefaultKVMessage("foo", "bar", KVMessage.StatusType.DELETE);
+        KVMessage msg = new DefaultKVMessage("foo", null, KVMessage.StatusType.DELETE);
 
         byte[] payload = Protocol.encode(msg);
 

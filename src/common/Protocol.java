@@ -8,6 +8,9 @@ import common.utils.RecordReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Implementation of the wire protocol.
@@ -19,6 +22,15 @@ public final class Protocol {
 
     private static final byte UNIT_SEPARATOR = 0x1f;
 
+    private static final Map<Byte, KVMessage.StatusType> STATUS_BY_OPCODE;
+    static {
+        Map<Byte, KVMessage.StatusType> map = new HashMap<>();
+        for (KVMessage.StatusType status : KVMessage.StatusType.values()) {
+            map.put(status.opCode, status);
+        }
+        STATUS_BY_OPCODE = Collections.unmodifiableMap(map);
+    }
+
     /**
      * Encodes a {@link KVMessage} into binary format to transfer it over the network.
      *
@@ -27,163 +39,30 @@ public final class Protocol {
      */
     public static byte[] encode(KVMessage message) {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
+
         // add content type, static for now
         bos.write(ContentType.KV_MESSAGE);
 
-        // PUT
-        if (message.getStatus() == KVMessage.StatusType.PUT) {
-            // op code
-            bos.write(KVMessage.StatusType.PUT.opCode);
+        // status type / op code
+        bos.write(message.getStatus().opCode);
 
-            // key
-            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
+        // TODO check for which messages key, value actually may be null
+
+        // key
+        String key = message.getKey();
+        if (key != null) {
+            byte[] keyData = key.getBytes(StandardCharsets.UTF_8);
             bos.write(keyData, 0, keyData.length);
-            bos.write(UNIT_SEPARATOR);
-
-            // value
-            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
-            bos.write(valueData, 0, valueData.length);
-            bos.write(UNIT_SEPARATOR);
-
-        //PUT_SUCCESS
-        }else if(message.getStatus() == KVMessage.StatusType.PUT_SUCCESS) {
-            // op code
-            bos.write(KVMessage.StatusType.PUT_SUCCESS.opCode);
-
-            // key
-            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
-            bos.write(keyData, 0, keyData.length);
-            bos.write(UNIT_SEPARATOR);
-
-            // value
-            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
-            bos.write(valueData, 0, valueData.length);
-            bos.write(UNIT_SEPARATOR);
-
-        //PUT_ERROR
-        }else if(message.getStatus() == KVMessage.StatusType.PUT_ERROR) {
-            // op code
-            bos.write(KVMessage.StatusType.PUT_ERROR.opCode);
-
-            // key
-            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
-            bos.write(keyData, 0, keyData.length);
-            bos.write(UNIT_SEPARATOR);
-
-            // value
-            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
-            bos.write(valueData, 0, valueData.length);
-            bos.write(UNIT_SEPARATOR);
-
-        //PUT_UPDATE
-        }else if (message.getStatus() == KVMessage.StatusType.PUT_UPDATE ) {
-            // op code
-            bos.write(KVMessage.StatusType.PUT_UPDATE.opCode);
-
-            // key
-            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
-            bos.write(keyData, 0, keyData.length);
-            bos.write(UNIT_SEPARATOR);
-
-            // value
-            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
-            bos.write(valueData, 0, valueData.length);
-            bos.write(UNIT_SEPARATOR);
-
-        //Get
-        }else if(message.getStatus() == KVMessage.StatusType.GET) {
-            // op code
-            bos.write(KVMessage.StatusType.GET.opCode);
-
-            // key
-            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
-            bos.write(keyData, 0, keyData.length);
-            bos.write(UNIT_SEPARATOR);
-
-            //value
-            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
-            bos.write(valueData, 0, valueData.length);
-            bos.write(UNIT_SEPARATOR);
-
-        //GET_ERROR
-        }else if(message.getStatus() == KVMessage.StatusType.GET_ERROR) {
-            // op code
-            bos.write(KVMessage.StatusType.GET_ERROR.opCode);
-
-            // key
-            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
-            bos.write(keyData, 0, keyData.length);
-            bos.write(UNIT_SEPARATOR);
-
-            //value
-            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
-            bos.write(valueData, 0, valueData.length);
-            bos.write(UNIT_SEPARATOR);
-
-        //GET_SUCCESS
-        }else if(message.getStatus() == KVMessage.StatusType.GET_SUCCESS) {
-            // op code
-            bos.write(KVMessage.StatusType.GET_SUCCESS.opCode);
-
-            // key
-            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
-            bos.write(keyData, 0, keyData.length);
-            bos.write(UNIT_SEPARATOR);
-
-            //value
-            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
-            bos.write(valueData, 0, valueData.length);
-            bos.write(UNIT_SEPARATOR);
-
-        // DELETE
-        }else if (message.getStatus() == KVMessage.StatusType.DELETE) {
-            // op code
-            bos.write(KVMessage.StatusType.DELETE.opCode);
-
-            // key
-            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
-            bos.write(keyData, 0, keyData.length);
-            bos.write(UNIT_SEPARATOR);
-
-            // value
-            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
-            bos.write(valueData, 0, valueData.length);
-            bos.write(UNIT_SEPARATOR);
-
-        // DELETE_SUCCESS
-        }else if (message.getStatus() == KVMessage.StatusType.DELETE_SUCCESS) {
-            // op code
-            bos.write(KVMessage.StatusType.DELETE_SUCCESS.opCode);
-
-            // key
-            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
-            bos.write(keyData, 0, keyData.length);
-            bos.write(UNIT_SEPARATOR);
-
-            // value
-            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
-            bos.write(valueData, 0, valueData.length);
-            bos.write(UNIT_SEPARATOR);
-
-        // DELETE_ERROR
-        }else if (message.getStatus() == KVMessage.StatusType.DELETE_ERROR) {
-            // op code
-            bos.write(KVMessage.StatusType.DELETE_ERROR.opCode);
-
-            // key
-            byte[] keyData = message.getKey().getBytes(StandardCharsets.UTF_8);
-            bos.write(keyData, 0, keyData.length);
-            bos.write(UNIT_SEPARATOR);
-
-            // value
-            byte[] valueData = message.getValue().getBytes(StandardCharsets.UTF_8);
-            bos.write(valueData, 0, valueData.length);
-            bos.write(UNIT_SEPARATOR);
-
-        }else{
-            throw new AssertionError("Please enter a valid status type");
-
         }
+        bos.write(UNIT_SEPARATOR);
+
+        // value
+        String value = message.getValue();
+        if (value != null) {
+            byte[] valueData = value.getBytes(StandardCharsets.UTF_8);
+            bos.write(valueData, 0, valueData.length);
+        }
+        bos.write(UNIT_SEPARATOR);
 
         return bos.toByteArray();
     }
@@ -206,7 +85,10 @@ public final class Protocol {
          * @throws ProtocolException if the data actually encoded an exception
          */
         public static KVMessage decode(byte[] payload) throws ProtocolException {
-            // TODO check and throw exception if length of payload < 3
+            if (payload.length < 4) {
+                throw new ProtocolException("Too short to be a valid message");
+            }
+
             byte contentType = payload[0];
 
             if (contentType != ContentType.KV_MESSAGE) {
@@ -214,101 +96,37 @@ public final class Protocol {
             }
 
             byte statusCode = payload[1];
-            byte data[] = new byte[payload.length - 2];
-            System.arraycopy(payload, 2, data, 0, data.length); //Maybe a problem with this code
+            KVMessage.StatusType status = STATUS_BY_OPCODE.get(statusCode);
 
+            if (status == null) {
+                throw new ProtocolException("Unknown op code: " + statusCode);
+            }
+
+            byte data[] = new byte[payload.length - 2];
+            System.arraycopy(payload, 2, data, 0, data.length);
 
             try {
                 RecordReader reader = new RecordReader(data, UNIT_SEPARATOR);
-                //PUT
-                if (statusCode == KVMessage.StatusType.PUT.opCode) {
-                    byte[] keyData = reader.read();
-                    byte[] valueData = reader.read();
-                    String key = new String(keyData, StandardCharsets.UTF_8);
-                    String value = new String(valueData, StandardCharsets.UTF_8);
 
-                    return new DefaultKVMessage(key, value, KVMessage.StatusType.PUT);
+                byte[] keyData = reader.read();
+                byte[] valueData = reader.read();
 
-                //PUT_SUCCESS
-                } else if (statusCode == KVMessage.StatusType.PUT_SUCCESS.opCode) {
-                    byte[] keyData = reader.read();
-                    byte[] valueData = reader.read();
-                    String key = new String(keyData, StandardCharsets.UTF_8);
-                    String value = new String(valueData, StandardCharsets.UTF_8);
-                    return new DefaultKVMessage(key, value, KVMessage.StatusType.PUT_SUCCESS);
-
-                //PUT_ERROR
-                } else if (statusCode == KVMessage.StatusType.PUT_ERROR.opCode) {
-                    byte[] keyData = reader.read();
-                    byte[] valueData = reader.read();
-                    String key = new String(keyData, StandardCharsets.UTF_8);
-                    String value = new String(valueData, StandardCharsets.UTF_8);
-                    return new DefaultKVMessage(key, value, KVMessage.StatusType.PUT_ERROR);
-
-                //PUT_UPDATE
-                }else if (statusCode == KVMessage.StatusType.PUT_UPDATE.opCode) {
-                    byte[] keyData = reader.read();
-                    byte[] valueData = reader.read();
-                    String key = new String(keyData, StandardCharsets.UTF_8);
-                    String value = new String(valueData, StandardCharsets.UTF_8);
-                    return new DefaultKVMessage(key, value, KVMessage.StatusType.PUT_UPDATE);
-
-                //GET
-                }else if(statusCode == KVMessage.StatusType.GET.opCode) {
-                    byte[] keyData = reader.read();
-                    byte[] valueData = reader.read();
-                    String key = new String(keyData, StandardCharsets.UTF_8);
-                    String value = new String(valueData, StandardCharsets.UTF_8);
-                    return new DefaultKVMessage(key, value, KVMessage.StatusType.GET);
-
-                //GET_ERROR
-                }else if(statusCode == KVMessage.StatusType.GET_ERROR.opCode) {
-                    byte[] keyData = reader.read();
-                    byte[] valueData = reader.read();
-                    String key = new String(keyData, StandardCharsets.UTF_8);
-                    String value = new String(valueData, StandardCharsets.UTF_8);
-                    return new DefaultKVMessage(key, value, KVMessage.StatusType.GET_ERROR);
-
-                //GET_SUCCESS
-                }else if(statusCode == KVMessage.StatusType.GET_SUCCESS.opCode) {
-                    byte[] keyData = reader.read();
-                    byte[] valueData = reader.read();
-                    String key = new String(keyData, StandardCharsets.UTF_8);
-                    String value = new String(valueData, StandardCharsets.UTF_8);
-                    return new DefaultKVMessage(key, value, KVMessage.StatusType.GET_SUCCESS);
-
-                //DELETE
-                }else if (statusCode == KVMessage.StatusType.DELETE.opCode) {
-                    byte[] keyData = reader.read();
-                    byte[] valueData = reader.read();
-                    String key = new String(keyData, StandardCharsets.UTF_8);
-                    String value = new String(valueData, StandardCharsets.UTF_8);
-                    return new DefaultKVMessage(key, value, KVMessage.StatusType.DELETE);
-
-                //DELETE_SUCCESS
-                }else if (statusCode == KVMessage.StatusType.DELETE_SUCCESS.opCode) {
-                    byte[] keyData = reader.read();
-                    byte[] valueData = reader.read();
-                    String key = new String(keyData, StandardCharsets.UTF_8);
-                    String value = new String(valueData, StandardCharsets.UTF_8);
-                    return new DefaultKVMessage(key, value, KVMessage.StatusType.DELETE_SUCCESS);
-
-                //DELETE ERROR
-                }else if (statusCode == KVMessage.StatusType.DELETE_ERROR.opCode) {
-                    byte[] keyData = reader.read();
-                    byte[] valueData = reader.read();
-                    String key = new String(keyData, StandardCharsets.UTF_8);
-                    String value = new String(valueData, StandardCharsets.UTF_8);
-                    return new DefaultKVMessage(key, value, KVMessage.StatusType.DELETE_ERROR);
-
-                }else{
-                    throw new ProtocolException("Unsupported status code: " + statusCode);
+                String key = null;
+                if (keyData != null && keyData.length > 0) {
+                    key = new String(keyData, StandardCharsets.UTF_8);
                 }
+
+                String value = null;
+                if (valueData != null && valueData.length > 0) {
+                    value = new String(valueData, StandardCharsets.UTF_8);
+                }
+
+                // TODO check when key, value actually may be null
+
+                return new DefaultKVMessage(key, value, status);
             } catch (IOException e) {
                 throw new ProtocolException("Error decoding message.", e);
             }
-
-
         }
 
 

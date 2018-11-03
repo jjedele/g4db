@@ -2,13 +2,16 @@ package app_kvClient.commands;
 
 import app_kvClient.KVClient;
 import client.KVCommInterface;
-import client.KVStore;
 import common.messages.KVMessage;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * The PutCommand represents a request to store a value for a key
+ * on the server.
+ */
 public class PutCommand implements Command {
 
     /** ID of this command. */
@@ -16,7 +19,6 @@ public class PutCommand implements Command {
 
     private String key;
     private String value;
-    private KVStore kvStore;
 
     /** {@inheritDoc} */
     @Override
@@ -48,26 +50,11 @@ public class PutCommand implements Command {
         }
         this.key = args[0];
         this.value = args[1];
-        // TODO:
-        this.kvStore = new KVStore("192.168.0.0", 80);
-        try {
-            kvStore.connect();
-        } catch (IOException e){
-            throw new CommandException("Could not connect.", this, e);
-        }
     }
 
     /** {@inheritDoc} */
     @Override
     public String run(KVClient cli) throws CommandException {
-        // TODO
-        try {
-            kvStore.put(key, value);
-        } catch(IOException e) {
-
-        }
-
-
         KVCommInterface client = cli.getClient();
 
         if (client == null) {

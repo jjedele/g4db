@@ -8,6 +8,10 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * The GetCommand represents a request to retrieve a stored
+ * value from the server.
+ */
 public class GetCommand implements Command {
 
     /** ID of this command. */
