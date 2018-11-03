@@ -6,8 +6,13 @@ package common;
 public final class ContentType {
 
     /**
-       *  A usual key,value message between client and server.
-       */
+     * A usual key,value message between client and server.
+     */
     public static final byte KV_MESSAGE = 0x00;
+
+    /**
+     * A general server-side exception.
+     */
+    public static final byte EXCEPTION = 0x01;
 
 }

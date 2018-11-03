@@ -1,6 +1,8 @@
 package common.exceptions;
 
-public class CommunicationException extends Exception {
+import java.io.IOException;
+
+public class CommunicationException extends IOException {
 
     public CommunicationException(String message) {
         super(message);

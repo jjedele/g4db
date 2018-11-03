@@ -2,6 +2,7 @@ package client;
 
 import common.Protocol;
 import common.exceptions.ProtocolException;
+import common.exceptions.RemoteException;
 import common.messages.DefaultKVMessage;
 import common.messages.KVMessage;
 import common.utils.RecordReader;
@@ -82,16 +83,11 @@ public class KVStore implements KVCommInterface {
         send(outgoingPayload);
 
         byte[] replyPayload = receive();
-        try {
-            KVMessage reply = Protocol.decode(replyPayload);
-            return reply;
-        } catch (ProtocolException e) {
-            LOG.error("Error decoding server reply.", e);
-            KVMessage fallback = new DefaultKVMessage(
-                    key,
-                    null, KVMessage.StatusType.PUT_ERROR);
-            return fallback;
-        }
+        KVMessage reply = Protocol.decode(replyPayload);
+
+        checkForError(reply);
+
+        return reply;
     }
 
     /**
@@ -104,16 +100,11 @@ public class KVStore implements KVCommInterface {
         send(outgoingPayload);
 
         byte[] replyPayload = receive();
-        try {
-            KVMessage reply = Protocol.decode(replyPayload);
-            return reply;
-        } catch (ProtocolException e) {
-            LOG.error("Error decoding server reply.", e);
-            KVMessage fallback = new DefaultKVMessage(
-                    key,
-                    null, KVMessage.StatusType.GET_ERROR);
-            return fallback;
-        }
+        KVMessage reply = Protocol.decode(replyPayload);
+
+        checkForError(reply);
+
+        return reply;
     }
 
     /**
@@ -125,15 +116,26 @@ public class KVStore implements KVCommInterface {
         send(outgoingPayload);
 
         byte[] replyPayload = receive();
-        try {
-            KVMessage reply = Protocol.decode(replyPayload);
-            return reply;
-        } catch (ProtocolException e) {
-            LOG.error("Error decoding server reply.", e);
-            KVMessage fallback = new DefaultKVMessage(
-                    key,
-                    null, KVMessage.StatusType.DELETE_ERROR);
-            return fallback;
+        KVMessage reply = Protocol.decode(replyPayload);
+
+        checkForError(reply);
+
+        return reply;
+    }
+
+    private void checkForError(KVMessage msg) throws ProtocolException {
+        if (msg.getStatus() == KVMessage.StatusType.PUT_ERROR) {
+            throw new RemoteException(
+                    "Could not PUT value, server replied: "
+                            + msg.getValue());
+        } else if (msg.getStatus() == KVMessage.StatusType.GET_ERROR) {
+            throw new RemoteException(
+                    "Could not GET value, server replied: "
+                            + msg.getValue());
+        } else if (msg.getStatus() == KVMessage.StatusType.DELETE_ERROR) {
+            throw new RemoteException(
+                    "Could not DELETE value, server replied: "
+                            + msg.getValue());
         }
     }
 

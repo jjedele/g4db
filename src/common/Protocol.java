@@ -1,6 +1,7 @@
 package common;
 
 import common.exceptions.ProtocolException;
+import common.exceptions.RemoteException;
 import common.messages.DefaultKVMessage;
 import common.messages.KVMessage;
 import common.utils.RecordReader;
@@ -67,67 +68,88 @@ public final class Protocol {
         return bos.toByteArray();
     }
 
-        // TODO: decide if we want to do this
-//    /**
-//     * Encodes an {@link ProtocolException} into binary format to transfer it over the network.
-//     * @param exception exception to marshal
-//     * @return encoded data as per protocol
-//     */
-//    public static byte[] encode(ProtocolException exception) {
-//        // TODO
-//        return null;
-//    }
+    /**
+     * Encodes an {@link Exception} into binary format to transfer it over the network.
+     *
+     * Only the message will be transferred.
+     *
+     * @param exception exception to marshal
+     * @return encoded data as per protocol
+     */
+    public static byte[] encode(Exception exception) {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
-        /**
-         * Decodes binary data as per protocol.
-         * @param payload the binary data
-         * @return the decoded message
-         * @throws ProtocolException if the data actually encoded an exception
-         */
-        public static KVMessage decode(byte[] payload) throws ProtocolException {
-            if (payload.length < 4) {
-                throw new ProtocolException("Too short to be a valid message");
-            }
+        // add content type, static for now
+        bos.write(ContentType.EXCEPTION);
 
-            byte contentType = payload[0];
+        // message
+        String message = exception.getMessage();
+        if (message !=  null) {
+            byte[] messageData = message.getBytes(StandardCharsets.UTF_8);
+            bos.write(messageData, 0, messageData.length);
+        }
+        bos.write(UNIT_SEPARATOR);
 
-            if (contentType != ContentType.KV_MESSAGE) {
-                throw new ProtocolException("Unsupported content type: " + contentType);
-            }
+        return bos.toByteArray();
+    }
 
-            byte statusCode = payload[1];
-            KVMessage.StatusType status = STATUS_BY_OPCODE.get(statusCode);
-
-            if (status == null) {
-                throw new ProtocolException("Unknown op code: " + statusCode);
-            }
-
-            byte data[] = new byte[payload.length - 2];
-            System.arraycopy(payload, 2, data, 0, data.length);
-
-            try {
-                RecordReader reader = new RecordReader(data, UNIT_SEPARATOR);
-
-                byte[] keyData = reader.read();
-                byte[] valueData = reader.read();
-
-                String key = null;
-                if (keyData != null && keyData.length > 0) {
-                    key = new String(keyData, StandardCharsets.UTF_8);
-                }
-
-                String value = null;
-                if (valueData != null && valueData.length > 0) {
-                    value = new String(valueData, StandardCharsets.UTF_8);
-                }
-
-                // TODO check when key, value actually may be null
-
-                return new DefaultKVMessage(key, value, status);
-            } catch (IOException e) {
-                throw new ProtocolException("Error decoding message.", e);
-            }
+    /**
+     * Decodes binary data as per protocol.
+     * @param payload the binary data
+     * @return the decoded message
+     * @throws ProtocolException if the data actually encoded an exception
+     */
+    public static KVMessage decode(byte[] payload) throws ProtocolException {
+        if (payload.length < 4) {
+            throw new ProtocolException("Too short to be a valid message");
         }
 
+        byte contentType = payload[0];
+
+        // TODO refactor this
+        if (contentType == ContentType.EXCEPTION) {
+            byte[] data = new byte[payload.length - 2];
+            System.arraycopy(payload, 1, data, 0, data.length);
+            String exceptionMsg = new String(data, StandardCharsets.UTF_8);
+            throw new RemoteException(exceptionMsg);
+        }
+
+        if (contentType != ContentType.KV_MESSAGE) {
+            throw new ProtocolException("Unsupported content type: " + contentType);
+        }
+
+        byte statusCode = payload[1];
+        KVMessage.StatusType status = STATUS_BY_OPCODE.get(statusCode);
+
+        if (status == null) {
+            throw new ProtocolException("Unknown op code: " + statusCode);
+        }
+
+        byte data[] = new byte[payload.length - 2];
+        System.arraycopy(payload, 2, data, 0, data.length);
+
+        try {
+            RecordReader reader = new RecordReader(data, UNIT_SEPARATOR);
+
+            byte[] keyData = reader.read();
+            byte[] valueData = reader.read();
+
+            String key = null;
+            if (keyData != null && keyData.length > 0) {
+                key = new String(keyData, StandardCharsets.UTF_8);
+            }
+
+            String value = null;
+            if (valueData != null && valueData.length > 0) {
+                value = new String(valueData, StandardCharsets.UTF_8);
+            }
+
+            // TODO check when key, value actually may be null
+
+            return new DefaultKVMessage(key, value, status);
+        } catch (IOException e) {
+            throw new ProtocolException("Error decoding message.", e);
+        }
+    }
 
 }

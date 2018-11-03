@@ -2,6 +2,7 @@ package app_kvClient;
 
 import app_kvClient.commands.*;
 import client.KVCommInterface;
+import common.exceptions.RemoteException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -125,7 +126,11 @@ public class KVClient {
      */
     public String formatException(CommandException e) {
         StringBuilder builder = new StringBuilder();
-        builder.append("ERROR: ");
+        if (e.getCause() instanceof RemoteException) {
+            builder.append("SERVER ERROR: ");
+        } else {
+            builder.append("ERROR: ");
+        }
         builder.append(e.getMessage());
         builder.append('\n');
         builder.append(getUsageInformation(e.getCommand()));

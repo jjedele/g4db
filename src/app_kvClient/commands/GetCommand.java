@@ -2,6 +2,7 @@ package app_kvClient.commands;
 
 import app_kvClient.KVClient;
 import client.KVCommInterface;
+import common.exceptions.RemoteException;
 import common.messages.KVMessage;
 
 import java.io.IOException;
@@ -62,6 +63,8 @@ public class GetCommand implements Command {
         try {
             KVMessage serverReply = client.get(key);
             reply = serverReply.toString();
+        } catch (RemoteException e) {
+            throw new CommandException(e.getMessage(), this, e);
         } catch (IOException e) {
             throw new CommandException("Could not get message.", this, e);
         }

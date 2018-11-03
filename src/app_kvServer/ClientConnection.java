@@ -71,21 +71,18 @@ public class ClientConnection implements Runnable {
                     break;
                 }
 
-                KVMessage response;
+                byte[] encodedResponse;
                 try {
                     KVMessage msg = Protocol.decode(incoming);
-                    response = handleIncomingRequest(msg);
+                    KVMessage response = handleIncomingRequest(msg);
+                    encodedResponse = Protocol.encode(response);
                 } catch (ProtocolException e) {
                     LOG.error("Protocol exception.", e);
-                    // TODO we want at least some extra status type for this
-                    response = new DefaultKVMessage(
-                            "GENERAL ERROR",
-                            e.getMessage(),
-                            KVMessage.StatusType.GET_ERROR);
+                    encodedResponse = Protocol.encode(e);
                 }
 
                 synchronized (outputStream) {
-                    outputStream.write(Protocol.encode(response));
+                    outputStream.write(encodedResponse);
                     outputStream.write(RECORD_SEPARATOR);
                     outputStream.flush();
                 }
@@ -136,7 +133,6 @@ public class ClientConnection implements Runnable {
         KVMessage reply;
 
         try {
-            // TODO handle update update separately
             boolean insert = persistenceService.put(
                     msg.getKey(),
                     msg.getValue());
