@@ -116,6 +116,9 @@ public class KVStore implements KVCommInterface {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public KVMessage delete(String key) throws IOException {
         KVMessage outgoing = new DefaultKVMessage(key, null, KVMessage.StatusType.DELETE);
         byte[] outgoingPayload = Protocol.encode(outgoing);
@@ -134,6 +137,10 @@ public class KVStore implements KVCommInterface {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public boolean isConnected() {
         return connected;
     }
@@ -149,25 +156,6 @@ public class KVStore implements KVCommInterface {
         synchronized (inputStream) {
             return inputReader.read();
         }
-    }
-
-    public static void main(String[] args) throws IOException {
-        KVStore client = new KVStore("localhost", 12345);
-        client.connect();
-
-        try {
-            KVMessage reply = client.put("foo", "bar");
-            System.out.println(reply);
-
-            reply = client.get("boom");
-            System.out.println(reply);
-
-        } catch (IOException e) {
-            LOG.error("Can not get key.", e);
-
-        }
-
-        client.disconnect();
     }
 
 }

@@ -11,12 +11,12 @@ public interface KVCommInterface {
      *
      * @throws IOException if connection could not be established.
      */
-    public void connect() throws IOException;
+    void connect() throws IOException;
 
     /**
      * disconnects the client from the currently connected server.
      */
-    public void disconnect();
+    void disconnect();
 
     /**
      * Inserts a key-value pair into the KVServer.
@@ -27,7 +27,7 @@ public interface KVCommInterface {
      * @throws IOException if put command cannot be executed (e.g. not connected to any
      *                   KV server).
      */
-    public KVMessage put(String key, String value) throws IOException;
+    KVMessage put(String key, String value) throws IOException;
 
     /**
      * Retrieves the value for a given key from the KVServer.
@@ -37,5 +37,11 @@ public interface KVCommInterface {
      * @throws IOException if put command cannot be executed (e.g. not connected to any
      *                   KV server).
      */
-    public KVMessage get(String key) throws IOException;
+    KVMessage get(String key) throws IOException;
+
+    /**
+     * Check if a connection to the server is established.
+     * @return true if connected
+     */
+    boolean isConnected();
 }

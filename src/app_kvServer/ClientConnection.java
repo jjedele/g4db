@@ -131,6 +131,8 @@ public class ClientConnection implements Runnable {
     private KVMessage handlePutRequest(KVMessage msg) {
         assert msg.getStatus() == KVMessage.StatusType.PUT;
 
+        LOG.debug("Handling PUT request for key: {}", msg.getKey());
+
         KVMessage reply;
 
         try {
@@ -161,6 +163,8 @@ public class ClientConnection implements Runnable {
     private KVMessage handleGetRequest(KVMessage msg) {
         assert msg.getStatus() == KVMessage.StatusType.GET;
 
+        LOG.debug("Handling GET request for key: {}", msg.getKey());
+
         KVMessage reply;
 
         try {
@@ -184,6 +188,8 @@ public class ClientConnection implements Runnable {
 
     private KVMessage handleDeleteRequest(KVMessage msg) {
         assert msg.getStatus() == KVMessage.StatusType.DELETE;
+
+        LOG.debug("Handling DELETE request for key: {}", msg.getKey());
 
         KVMessage reply;
 
