@@ -23,8 +23,10 @@ public class ClientConnection implements Runnable {
 
     private static final Logger LOG = LogManager.getLogger(ClientConnection.class);
 
+    private static final byte RECORD_SEPARATOR = 0x1e;
+
     private final Socket clientSocket;
-    private final AtomicBoolean terminated;
+    private final AtomicBoolean running;
     private final PersistenceService persistenceService;
     private final SessionRegistry sessionRegistry;
 
@@ -38,7 +40,7 @@ public class ClientConnection implements Runnable {
                             PersistenceService persistenceService,
                             SessionRegistry sessionRegistry) {
         this.clientSocket = clientSocket;
-        this.terminated = new AtomicBoolean(false);
+        this.running = new AtomicBoolean(false);
         this.persistenceService = persistenceService;
         this.sessionRegistry = sessionRegistry;
     }
@@ -50,36 +52,51 @@ public class ClientConnection implements Runnable {
     public void run() {
         try {
             // TODO handle errors more gracefully
+            this.running.set(true);
             sessionRegistry.registerSession(this);
 
             OutputStream outputStream = clientSocket.getOutputStream();
             InputStream inputStream = clientSocket.getInputStream();
-            RecordReader recordReader = new RecordReader(inputStream, (byte) '\n');
+            RecordReader recordReader = new RecordReader(inputStream, RECORD_SEPARATOR);
 
-            while (!terminated.get()) {
-                byte[] payload = recordReader.read();
+            while (running.get()) {
+                byte[] incoming;
+                synchronized (recordReader) {
+                    incoming = recordReader.read();
+                }
 
-                if (payload[0] == (byte) 'Q') {
+                if (incoming == null) {
                     LOG.info("Terminating based on client's request.");
                     terminate();
                     break;
                 }
 
-                byte[] response;
+                KVMessage response;
                 try {
-                    response = handleMessage(payload);
-                } catch (PersistenceException | ProtocolException e) {
-                    response = ("ERROR: " + e.getMessage() + "\n").getBytes();
+                    KVMessage msg = Protocol.decode(incoming);
+                    response = handleIncomingRequest(msg);
+                } catch (ProtocolException e) {
+                    LOG.error("Protocol exception.", e);
+                    // TODO we want at least some extra status type for this
+                    response = new DefaultKVMessage(
+                            "GENERAL ERROR",
+                            e.getMessage(),
+                            KVMessage.StatusType.GET_ERROR);
                 }
 
-                outputStream.write(response);
-                outputStream.flush();
+                synchronized (outputStream) {
+                    outputStream.write(Protocol.encode(response));
+                    outputStream.write(RECORD_SEPARATOR);
+                    outputStream.flush();
+                }
             }
 
             clientSocket.close();
         } catch (IOException e) {
-           LOG.error("Communication problem with client.", e);
+            // TODO handle more gracefully
+            LOG.error("Communication problem with client.", e);
         } finally {
+            // TODO definitely make sure session is teared down
             sessionRegistry.unregisterSession(this);
         }
     }
@@ -88,30 +105,105 @@ public class ClientConnection implements Runnable {
      * Terminate this session in a controlled manor.
      */
     public void terminate() {
-        this.terminated.set(true);
+        this.running.set(true);
     }
 
-    private byte[] handleMessage(byte[] payload) throws ProtocolException, PersistenceException, IOException {
-        // TODO: this must be extended as soon we have implemented the full wire protocol
-        KVMessage message = Protocol.decode(payload);
+    private KVMessage handleIncomingRequest(KVMessage msg) throws ProtocolException {
+        KVMessage reply;
 
-        if (message.getStatus() == KVMessage.StatusType.PUT) {
-            persistenceService.put(message.getKey(), message.getValue());
-            KVMessage response = new DefaultKVMessage(
-                    message.getKey(),
-                    message.getValue(),
-                    KVMessage.StatusType.PUT_SUCCESS);
-            return Protocol.encode(response);
-        } else if (message.getStatus() == KVMessage.StatusType.GET) {
-            String value = persistenceService.get(message.getKey());
-            KVMessage response = new DefaultKVMessage(
-                    message.getKey(),
+        switch (msg.getStatus()) {
+            case PUT:
+                reply = handlePutRequest(msg);
+                break;
+            case GET:
+                reply = handleGetRequest(msg);
+                break;
+            case DELETE:
+                reply = handleDeleteRequest(msg);
+                break;
+            default:
+                throw new ProtocolException("Unsupported request: " + msg.getStatus().name());
+        }
+
+        return reply;
+    }
+
+    private KVMessage handlePutRequest(KVMessage msg) {
+        assert msg.getStatus() == KVMessage.StatusType.PUT;
+
+        KVMessage reply;
+
+        try {
+            // TODO handle update update separately
+            boolean insert = persistenceService.persist(
+                    msg.getKey(),
+                    msg.getValue());
+
+            KVMessage.StatusType status =
+                    insert ? KVMessage.StatusType.PUT_SUCCESS : KVMessage.StatusType.PUT_UPDATE;
+
+            reply = new DefaultKVMessage(
+                    msg.getKey(),
+                    msg.getValue(),
+                    status);
+        } catch (PersistenceException e) {
+            LOG.error("Error handling PUT request.", e);
+
+            reply = new DefaultKVMessage(
+                    msg.getKey(),
+                    e.getMessage(),
+                    KVMessage.StatusType.PUT_ERROR);
+        }
+
+        return reply;
+    }
+
+    private KVMessage handleGetRequest(KVMessage msg) {
+        assert msg.getStatus() == KVMessage.StatusType.GET;
+
+        KVMessage reply;
+
+        try {
+            String value = persistenceService.get(msg.getKey());
+
+            reply = new DefaultKVMessage(
+                    msg.getKey(),
                     value,
                     KVMessage.StatusType.GET_SUCCESS);
-            return Protocol.encode(response);
-        } else {
-            throw new ProtocolException("Unsupported message status: " + message.getStatus());
+        } catch (PersistenceException e) {
+            LOG.error("Error handling GET request.", e);
+
+            reply = new DefaultKVMessage(
+                    msg.getKey(),
+                    e.getMessage(),
+                    KVMessage.StatusType.GET_ERROR);
         }
+
+        return reply;
+    }
+
+    private KVMessage handleDeleteRequest(KVMessage msg) {
+        assert msg.getStatus() == KVMessage.StatusType.DELETE;
+
+        KVMessage reply;
+
+        try {
+            persistenceService.delete(msg.getKey());
+
+            reply = new DefaultKVMessage(
+                    msg.getKey(),
+                    msg.getValue(),
+                    KVMessage.StatusType.DELETE_SUCCESS);
+        } catch (PersistenceException e) {
+            LOG.error("Error handling DELETE request.", e);
+
+            reply = new DefaultKVMessage(
+                    msg.getKey(),
+                    e.getMessage(),
+                    KVMessage.StatusType.DELETE_ERROR);
+        }
+
+        return reply;
     }
 
 }

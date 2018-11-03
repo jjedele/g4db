@@ -1,9 +1,6 @@
 package app_kvClient.commands;
 
 import app_kvClient.KVClient;
-import client.Client;
-
-import java.io.IOException;
 
 public class DisconnectCommand implements Command {
 
@@ -33,17 +30,11 @@ public class DisconnectCommand implements Command {
      */
     @Override
     public String run(KVClient cli) throws CommandException {
-        Client client = cli.getClient();
-
-        if (!client.isConnected()) {
+        if (cli.getClient() == null) {
             throw new CommandException("Not connected.", this);
         }
 
-        try {
-            client.disconnect();
-        } catch (IOException e) {
-            throw new CommandException("Could not connect socket.", this, e);
-        }
+        cli.getClient().disconnect();
         return "Disconnected";
     }
 }
