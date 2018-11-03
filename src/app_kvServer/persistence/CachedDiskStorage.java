@@ -13,6 +13,8 @@ public class CachedDiskStorage implements PersistenceService {
     private final Cache<String, String> cache;
     private final PersistenceService diskStorage;
 
+    // TODO: show if synchronization can be done in a smarter way
+
     /**
      * Default constructor.
      * @param dataDirectory The directory where data files are stored
@@ -43,7 +45,7 @@ public class CachedDiskStorage implements PersistenceService {
      * {@inheritDoc}
      */
     @Override
-    public boolean put(String key, String value) throws PersistenceException {
+    public synchronized boolean put(String key, String value) throws PersistenceException {
         diskStorage.put(key, value);
         cache.put(key, value);
 
@@ -54,7 +56,7 @@ public class CachedDiskStorage implements PersistenceService {
      * {@inheritDoc}
      */
     @Override
-    public String get(String key) throws PersistenceException {
+    public synchronized String get(String key) throws PersistenceException {
         if (cache.contains(key)) return cache.get(key);
         return diskStorage.get(key);
     }
@@ -63,7 +65,7 @@ public class CachedDiskStorage implements PersistenceService {
      * {@inheritDoc}
      */
     @Override
-    public void delete(String key) throws PersistenceException {
+    public synchronized void delete(String key) throws PersistenceException {
         diskStorage.delete(key);
         cache.delete(key);
     }
@@ -72,7 +74,7 @@ public class CachedDiskStorage implements PersistenceService {
      * {@inheritDoc}
      */
     @Override
-    public boolean contains(String key) throws PersistenceException {
+    public synchronized boolean contains(String key) throws PersistenceException {
         return cache.contains(key) || diskStorage.contains(key);
     }
 
