@@ -2,6 +2,7 @@ package app_kvClient.commands;
 
 import app_kvClient.KVClient;
 import client.KVCommInterface;
+import client.exceptions.ClientException;
 import common.exceptions.RemoteException;
 import common.messages.KVMessage;
 
@@ -58,18 +59,12 @@ public class PutCommand implements Command {
     public String run(KVClient cli) throws CommandException {
         KVCommInterface client = cli.getClient();
 
-        if (client == null) {
-            throw new CommandException("Not connected.", this);
-        }
-
         String reply = null;
         try {
             KVMessage serverReply = client.put(key,value);
-            reply = serverReply.toString();
-        } catch (RemoteException e) {
+            reply = serverReply.getStatus().name();
+        } catch (ClientException e) {
             throw new CommandException(e.getMessage(), this, e);
-        }  catch (IOException e) {
-            throw new CommandException("Could not send message.", this, e);
         }
         return reply;
     }

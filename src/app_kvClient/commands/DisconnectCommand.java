@@ -30,11 +30,11 @@ public class DisconnectCommand implements Command {
      */
     @Override
     public String run(KVClient cli) throws CommandException {
-        if (cli.getClient() == null) {
+        if (!cli.getClient().isConnected()) {
             throw new CommandException("Not connected.", this);
         }
 
         cli.getClient().disconnect();
-        return "Disconnected";
+        return "Disconnected successfully.";
     }
 }

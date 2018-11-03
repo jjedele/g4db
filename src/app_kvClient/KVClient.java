@@ -2,7 +2,8 @@ package app_kvClient;
 
 import app_kvClient.commands.*;
 import client.KVCommInterface;
-import common.exceptions.RemoteException;
+import client.KVStore;
+import client.exceptions.ServerSideException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -62,6 +63,7 @@ public class KVClient {
                     System.out.println(cli.formatException(e));
                     LOG.error("Could not execute command.", e);
                 } catch (Exception e) {
+                    System.err.println("Unexpected error: " + e);
                     LOG.error("Unexpected error while executing command.", e);
                 }
             }
@@ -73,6 +75,7 @@ public class KVClient {
      */
     public KVClient() {
         this.exiting = false;
+        this.client = new KVStore("localhost", 50000);
 
         // TODO: at some point we could use reflection for this
         this.commands = new HashMap<>();
@@ -126,7 +129,7 @@ public class KVClient {
      */
     public String formatException(CommandException e) {
         StringBuilder builder = new StringBuilder();
-        if (e.getCause() instanceof RemoteException) {
+        if (e.getCause() instanceof ServerSideException) {
             builder.append("SERVER ERROR: ");
         } else {
             builder.append("ERROR: ");
@@ -195,6 +198,9 @@ public class KVClient {
      */
     public String getPrompt() {
         StringBuilder builder = new StringBuilder("EchoClient");
+        if (client.isConnected()) {
+            builder.append(" (connected)");
+        }
         builder.append("> ");
         return builder.toString();
     }

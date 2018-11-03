@@ -1,5 +1,6 @@
 package client;
 
+import client.exceptions.ClientException;
 import common.messages.KVMessage;
 
 import java.io.IOException;
@@ -11,7 +12,7 @@ public interface KVCommInterface {
      *
      * @throws IOException if connection could not be established.
      */
-    void connect() throws IOException;
+    void connect() throws ClientException;
 
     /**
      * disconnects the client from the currently connected server.
@@ -27,7 +28,7 @@ public interface KVCommInterface {
      * @throws IOException if put command cannot be executed (e.g. not connected to any
      *                   KV server).
      */
-    KVMessage put(String key, String value) throws IOException;
+    KVMessage put(String key, String value) throws ClientException;
 
     /**
      * Retrieves the value for a given key from the KVServer.
@@ -37,7 +38,7 @@ public interface KVCommInterface {
      * @throws IOException if put command cannot be executed (e.g. not connected to any
      *                   KV server).
      */
-    KVMessage get(String key) throws IOException;
+    KVMessage get(String key) throws ClientException;
 
     /**
      * Check if a connection to the server is established.

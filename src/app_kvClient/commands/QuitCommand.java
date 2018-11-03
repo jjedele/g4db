@@ -25,7 +25,7 @@ public class QuitCommand implements Command {
     /** {@inheritDoc} */
     @Override
     public String run(KVClient cli) {
-        // TODO disconnect from the client
+        cli.getClient().disconnect();
         cli.setExiting(true);
         return "Shutting down now - Good bye!";
     }
