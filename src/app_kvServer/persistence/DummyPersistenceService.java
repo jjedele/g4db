@@ -26,7 +26,7 @@ public class DummyPersistenceService implements PersistenceService {
     }
 
     @Override
-    public boolean persist(String key, String value) throws PersistenceException {
+    public boolean put(String key, String value) throws PersistenceException {
         LOG.info("Persist called: {} -> {}", key, value);
         boolean insert = !map.containsKey(key);
         map.put(key, value);

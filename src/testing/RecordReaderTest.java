@@ -2,10 +2,13 @@ package testing;
 
 import common.utils.RecordReader;
 import junit.framework.TestCase;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.File;
 
 public class RecordReaderTest extends TestCase {
 
