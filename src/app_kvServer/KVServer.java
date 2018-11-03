@@ -29,7 +29,7 @@ public class KVServer implements Runnable, SessionRegistry {
      *             cache strategy - can be one of FIFO, LRU, LFU
      */
     public static void main(String[] args) {
-        int port = 12345;
+        int port = 50000;
         int cacheSize = 10000;
         CacheReplacementStrategy strategy = CacheReplacementStrategy.FIFO;
 
