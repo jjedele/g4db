@@ -25,10 +25,13 @@ public class ClientConnection implements Runnable {
 
     private static final byte RECORD_SEPARATOR = 0x1e;
 
-    private final Socket clientSocket;
     private final AtomicBoolean running;
     private final PersistenceService persistenceService;
     private final SessionRegistry sessionRegistry;
+
+    private final Socket socket;
+    private InputStream inputStream;
+    private OutputStream outputStream;
 
     /**
      * Default constructor.
@@ -39,7 +42,7 @@ public class ClientConnection implements Runnable {
     public ClientConnection(Socket clientSocket,
                             PersistenceService persistenceService,
                             SessionRegistry sessionRegistry) {
-        this.clientSocket = clientSocket;
+        this.socket = clientSocket;
         this.running = new AtomicBoolean(false);
         this.persistenceService = persistenceService;
         this.sessionRegistry = sessionRegistry;
@@ -55,8 +58,8 @@ public class ClientConnection implements Runnable {
             this.running.set(true);
             sessionRegistry.registerSession(this);
 
-            OutputStream outputStream = clientSocket.getOutputStream();
-            InputStream inputStream = clientSocket.getInputStream();
+            outputStream = socket.getOutputStream();
+            inputStream = socket.getInputStream();
             RecordReader recordReader = new RecordReader(inputStream, RECORD_SEPARATOR);
 
             while (running.get()) {
@@ -88,12 +91,11 @@ public class ClientConnection implements Runnable {
                 }
             }
 
-            clientSocket.close();
+            socket.close();
         } catch (IOException e) {
-            // TODO handle more gracefully
             LOG.error("Communication problem with client.", e);
         } finally {
-            // TODO definitely make sure session is teared down
+            cleanConnectionShutdown();
             sessionRegistry.unregisterSession(this);
         }
     }
@@ -102,7 +104,7 @@ public class ClientConnection implements Runnable {
      * Terminate this session in a controlled manor.
      */
     public void terminate() {
-        this.running.set(true);
+        this.running.set(false);
     }
 
     private KVMessage handleIncomingRequest(KVMessage msg) throws ProtocolException {
@@ -206,6 +208,32 @@ public class ClientConnection implements Runnable {
         }
 
         return reply;
+    }
+
+    private void cleanConnectionShutdown() {
+        LOG.info("Closing connection.");
+        if (inputStream != null) {
+            try {
+                inputStream.close();
+            } catch (IOException e) {
+                LOG.error("Error closing connection.", e);
+            }
+        }
+        if (outputStream != null) {
+            try {
+                outputStream.close();
+            } catch (IOException e) {
+                LOG.error("Error closing connection.", e);
+            }
+        }
+        if (socket != null) {
+            try {
+                socket.close();
+            } catch (IOException e) {
+                LOG.error("Error closing connection.", e);
+            }
+        }
+        running.set(false);
     }
 
 }
