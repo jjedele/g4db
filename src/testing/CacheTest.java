@@ -1,6 +1,8 @@
 package testing;
 
 import app_kvServer.persistence.LFUCache;
+import app_kvServer.persistence.LRUCache;
+import app_kvServer.persistence.PersistenceException;
 import junit.framework.TestCase;
 
 public class CacheTest extends TestCase {
@@ -24,6 +26,26 @@ public class CacheTest extends TestCase {
         assertFalse(cache.contains("bar"));
         assertTrue(cache.contains("foo"));
         assertTrue(cache.contains("baz"));
+    }
+
+    public void testLRUCache() {
+        LRUCache<String, String> cache = new LRUCache<>(10);
+        cache.put("key", "value");
+        cache.put("key1", "value1");
+        cache.put("key2", "value2");
+        cache.put("key3", "value3");
+        cache.put("key4", "value4");
+        cache.put("key5", "value5");
+        cache.put("key6", "value6");
+
+        assertTrue(cache.contains("key"));
+        assertTrue(cache.contains("key1"));
+        assertTrue(cache.contains("key2"));
+        assertTrue(cache.contains("key3"));
+        assertTrue(cache.contains("key4"));
+        cache.delete("key6");
+        assertFalse(cache.contains("key6"));
+        assertEquals("value5", cache.get("key5"));
     }
 
 }
