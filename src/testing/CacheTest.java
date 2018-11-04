@@ -1,5 +1,6 @@
 package testing;
 
+import app_kvServer.persistence.FIFOCache;
 import app_kvServer.persistence.LFUCache;
 import app_kvServer.persistence.LRUCache;
 import app_kvServer.persistence.PersistenceException;
@@ -46,6 +47,26 @@ public class CacheTest extends TestCase {
         cache.delete("key6");
         assertFalse(cache.contains("key6"));
         assertEquals("value5", cache.get("key5"));
+    }
+
+    public void testFIFOCache() throws PersistenceException {
+        FIFOCache<String, String> fifoCache = new FIFOCache<>(10);
+        fifoCache.put("key", "value");
+        fifoCache.put("key1", "value1");
+        fifoCache.put("key2", "value2");
+        fifoCache.put("key3", "value3");
+        fifoCache.put("key4", "value4");
+        fifoCache.put("key5", "value5");
+        fifoCache.put("key6", "value6");
+
+        assertTrue(fifoCache.contains("key"));
+        assertTrue(fifoCache.contains("key1"));
+        assertTrue(fifoCache.contains("key2"));
+        assertTrue(fifoCache.contains("key3"));
+        assertTrue(fifoCache.contains("key4"));
+        fifoCache.delete("key6");
+        assertFalse(fifoCache.contains("key6"));
+        assertEquals("value5", fifoCache.get("key5"));
     }
 
 }
