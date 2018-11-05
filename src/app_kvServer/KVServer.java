@@ -23,6 +23,8 @@ public class KVServer implements Runnable, SessionRegistry {
     private final CacheReplacementStrategy cacheStrategy;
     private final Set<ClientConnection> activeSessions;
 
+    private ServerSocket socket;
+
     /**
      * Entry point for the server.
      * @param args Configuration for the server. In order:
@@ -110,6 +112,8 @@ public class KVServer implements Runnable, SessionRegistry {
             }
         } catch (IOException e) {
             LOG.error("Error while accepting connections.", e);
+        } finally {
+            cleanSocketShutdown();
         }
     }
 
@@ -127,6 +131,17 @@ public class KVServer implements Runnable, SessionRegistry {
     @Override
     public void unregisterSession(ClientConnection session) {
         activeSessions.remove(session);
+    }
+
+    private void cleanSocketShutdown() {
+        LOG.info("Closing connection.");
+        if (socket != null) {
+            try {
+                socket.close();
+            } catch (IOException e) {
+                LOG.error("Error closing connection.", e);
+            }
+        }
     }
 
 }
