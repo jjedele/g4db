@@ -6,12 +6,15 @@ import org.apache.logging.log4j.Logger;
 import java.util.*;
 
 public class LRUCache<K,V> implements Cache<K,V>  {
+    private static final Logger LOG = LogManager.getLogger(LRUCache.class);
+
     private final Map<K, V> cacheMap;
 
     public LRUCache(int cacheSize) {
         this.cacheMap = new LinkedHashMap<>(cacheSize, 0.75f, true) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
+                LOG.debug("Ejected element: {}", eldest);
                 return size() > cacheSize;
             }
         };

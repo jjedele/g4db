@@ -3,7 +3,6 @@ package testing;
 import app_kvServer.persistence.FIFOCache;
 import app_kvServer.persistence.LFUCache;
 import app_kvServer.persistence.LRUCache;
-import app_kvServer.persistence.PersistenceException;
 import junit.framework.TestCase;
 
 public class CacheTest extends TestCase {
@@ -49,7 +48,7 @@ public class CacheTest extends TestCase {
         assertEquals("value5", cache.get("key5"));
     }
 
-    public void testFIFOCache() throws PersistenceException {
+    public void testFIFOCache() {
         FIFOCache<String, String> fifoCache = new FIFOCache<>(10);
         fifoCache.put("key", "value");
         fifoCache.put("key1", "value1");
