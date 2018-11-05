@@ -23,7 +23,7 @@ public class FIFOCache<K, V> implements Cache<K, V> {
      * @param cacheSize Number of elements to hold
      */
     public FIFOCache(int cacheSize) {
-        this.cacheMap = new LinkedHashMap<>(cacheSize, 0.75f, false) {
+        this.cacheMap = new LinkedHashMap<K, V>(cacheSize, 0.75f, false) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
                 LOG.debug("Ejected element: {}", eldest);

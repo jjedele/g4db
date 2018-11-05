@@ -22,7 +22,7 @@ public class LRUCache<K,V> implements Cache<K,V>  {
      * @param cacheSize Number of elements to hold
      */
     public LRUCache(int cacheSize) {
-        this.cacheMap = new LinkedHashMap<>(cacheSize, 0.75f, true) {
+        this.cacheMap = new LinkedHashMap<K, V>(cacheSize, 0.75f, true) {
             @Override
             protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
                 LOG.debug("Ejected element: {}", eldest);
