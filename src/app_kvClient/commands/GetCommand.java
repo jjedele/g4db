@@ -31,7 +31,8 @@ public class GetCommand implements Command {
     @Override
     public List<Argument> getArguments() {
         return Arrays.asList(
-                new Argument("key", "Unique key of the information.")
+                new Argument("key", "Key of the data to retrieve. " +
+                        "Enclose in quotes to include whitespaces.")
         );
     }
 

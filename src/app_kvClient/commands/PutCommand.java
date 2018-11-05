@@ -32,8 +32,11 @@ public class PutCommand implements Command {
     @Override
     public List<Argument> getArguments() {
         return Arrays.asList(
-                new Argument("key", "Unique key of the information."),
-                new Argument("value", "Value of the information.")
+                new Argument("key", "Key of the data. " +
+                        "Enclose in quotes to include whitespace."),
+                new Argument("value", "Value of the data. " +
+                        "Enclose in quotes to include whitespace. " +
+                        "Use \"null\" to delete the data.")
         );
     }
 
