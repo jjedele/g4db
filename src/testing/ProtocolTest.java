@@ -2,9 +2,12 @@ package testing;
 
 import common.Protocol;
 import common.exceptions.ProtocolException;
+import common.exceptions.RemoteException;
 import common.messages.DefaultKVMessage;
 import common.messages.KVMessage;
 import junit.framework.TestCase;
+
+import java.util.Arrays;
 
 public class ProtocolTest extends TestCase {
 
@@ -136,6 +139,33 @@ public class ProtocolTest extends TestCase {
         assertEquals(msg.getKey(), msg2.getKey());
         assertEquals(msg.getValue(), msg2.getValue());
         assertEquals(msg.getStatus(), msg2.getStatus());
+    }
+
+    public void testEncodeDecodeException() {
+        Exception e = new IllegalArgumentException("foo");
+
+        byte[] data = Protocol.encode(e);
+
+        ProtocolException e2 = null;
+        try {
+            Protocol.decode(data);
+        } catch (ProtocolException exc) {
+            e2 = exc;
+        }
+
+        assertNotNull(e2);
+        assertTrue(e2 instanceof RemoteException);
+        assertEquals("foo", e.getMessage());
+    }
+
+    public void testIntegerConversion() {
+        int n = 4242;
+
+        byte[] encoded = Protocol.intToBytes(n);
+
+        int n2 = Protocol.bytesToInt(encoded);
+
+        assertEquals(n, n2);
     }
 
 }

@@ -5,17 +5,17 @@
             <PatternLayout pattern="%d{DEFAULT} [%t] %-5level %logger{36} %l - %msg%n"/>
         </Console>
         <File name="CloudDB" filename="logs/client.log">
-            <PatternLayout pattern="%d{DEFAULT} [%t] %-5level %logger{36} %l - %msg%n"/>
+            <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %logger{36} %l - %msg%n"/>
         </File>
         <File name="kvServer" filename="logs/server.log">
-            <PatternLayout pattern="%d{DEFAULT} [%t] %-5level %logger{36} %l - %msg%n"/>
+            <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %logger{36} %l - %msg%n"/>
         </File>
         <File name="tests" filename="logs/tests.log">
             <PatternLayout pattern="%d{DEFAULT} [%t] %-5level %logger{36} %l - %msg%n"/>
         </File>
     </Appenders>
     <Loggers>
-        <Root level="info">
+        <Root level="debug">
             <!--<AppenderRef ref="Console"/>-->
             <AppenderRef ref="CloudDB" />
         </Root>

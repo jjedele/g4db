@@ -1,6 +1,7 @@
 package testing;
 
 import client.KVStore;
+import client.exceptions.ConnectionException;
 import junit.framework.TestCase;
 
 import java.net.UnknownHostException;
@@ -34,7 +35,7 @@ public class ConnectionTest extends TestCase {
             ex = e;
         }
 
-        assertTrue(ex instanceof UnknownHostException);
+        assertTrue(ex instanceof ConnectionException);
     }
 
 
@@ -48,7 +49,7 @@ public class ConnectionTest extends TestCase {
             ex = e;
         }
 
-        assertTrue(ex instanceof IllegalArgumentException);
+        assertTrue(ex instanceof ConnectionException);
     }
 
 }

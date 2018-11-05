@@ -12,6 +12,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class KVServer implements Runnable, SessionRegistry {
 
@@ -23,7 +24,8 @@ public class KVServer implements Runnable, SessionRegistry {
     private final CacheReplacementStrategy cacheStrategy;
     private final Set<ClientConnection> activeSessions;
 
-    private ServerSocket socket;
+    private ServerSocket serverSocket;
+    private AtomicBoolean running;
 
     /**
      * Entry point for the server.
@@ -62,28 +64,30 @@ public class KVServer implements Runnable, SessionRegistry {
             }
         }
 
-        KVServer server = new KVServer(port, cacheSize, strategy);
-        new Thread(server).run();
+        File dataDirectory = new File("./data");
+        KVServer server = new KVServer(port, dataDirectory, cacheSize, strategy);
+        // not doing this in a thread by choice
+        server.run();
     }
 
     /**
      * Start KV Server at given port
      *
      * @param port      given port for persistence server to operate
+     * @param dataDirectory directory to store data in
      * @param cacheSize specifies how many key-value pairs the server is allowed
      *                  to keep in-memory
      * @param cacheStrategy  specifies the cache replacement strategy in case the cache
      *                  is full and there is a GET- or PUT-request on a key that is
      *                  currently not contained in the cache.
      */
-    public KVServer(int port, int cacheSize, CacheReplacementStrategy cacheStrategy) {
+    public KVServer(int port, File dataDirectory, int cacheSize, CacheReplacementStrategy cacheStrategy) {
         this.port = port;
         this.cacheSize = cacheSize;
         this.cacheStrategy = cacheStrategy;
         this.activeSessions = new HashSet<>();
-
-        // TODO make data directory configurable
-        this.dataDirectory = new File("./data");
+        this.dataDirectory = dataDirectory;
+        this.running = new AtomicBoolean(false);
     }
 
     /**
@@ -96,11 +100,12 @@ public class KVServer implements Runnable, SessionRegistry {
             PersistenceService persistenceService =
                     new CachedDiskStorage(dataDirectory, cacheSize, cacheStrategy);
 
-            ServerSocket serverSocket = new ServerSocket(port);
+            serverSocket = new ServerSocket(port);
             LOG.info("Server listening on port {}.", port);
 
             // accept client connections
-            while (true) {
+            running.set(true);
+            while (running.get()) {
                 Socket clientSocket = serverSocket.accept();
 
                 ClientConnection clientConnection = new ClientConnection(
@@ -115,6 +120,13 @@ public class KVServer implements Runnable, SessionRegistry {
         } finally {
             cleanSocketShutdown();
         }
+    }
+
+    /**
+     * Stop the server.
+     */
+    public void stop() {
+        this.running.set(false);
     }
 
     /**
@@ -135,9 +147,9 @@ public class KVServer implements Runnable, SessionRegistry {
 
     private void cleanSocketShutdown() {
         LOG.info("Closing connection.");
-        if (socket != null) {
+        if (serverSocket != null) {
             try {
-                socket.close();
+                serverSocket.close();
             } catch (IOException e) {
                 LOG.error("Error closing connection.", e);
             }

@@ -62,7 +62,8 @@ public class PutCommand implements Command {
         String reply = null;
         try {
             KVMessage serverReply = client.put(key,value);
-            reply = serverReply.getStatus().name();
+            reply = String.format("%s %s : %s", serverReply.getStatus().name(),
+                    serverReply.getKey(), serverReply.getValue());
         } catch (ClientException e) {
             throw new CommandException(e.getMessage(), this, e);
         }

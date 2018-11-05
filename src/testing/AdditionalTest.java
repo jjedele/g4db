@@ -10,7 +10,7 @@ public class AdditionalTest extends TestCase {
      * See:
      * - RecordReaderTest
      * - ProtocolTest
-     * - PersistenceStorageTest
+     * - DiskStorageTest
      * - CachedDiskTest
      * - CacheTest
      * - ...

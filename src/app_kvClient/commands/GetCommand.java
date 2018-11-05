@@ -63,8 +63,8 @@ public class GetCommand implements Command {
         String reply = null;
         try {
             KVMessage serverReply = client.get(key);
-            reply = String.format("%s: %s",
-                    serverReply.getStatus().name(), serverReply.getValue());
+            reply = String.format("%s %s : %s", serverReply.getStatus().name(),
+                    serverReply.getKey(), serverReply.getValue());
         } catch (ClientException e) {
             throw new CommandException(e.getMessage(), this, e);
         }

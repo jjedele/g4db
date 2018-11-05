@@ -1,6 +1,7 @@
 package client;
 
 import client.exceptions.*;
+import common.CorrelationInformation;
 import common.Protocol;
 import common.exceptions.ProtocolException;
 import common.messages.DefaultKVMessage;
@@ -8,11 +9,13 @@ import common.messages.KVMessage;
 import common.utils.RecordReader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.ThreadContext;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.Random;
 
 public class KVStore implements KVCommInterface {
 
@@ -21,6 +24,9 @@ public class KVStore implements KVCommInterface {
 
     private final String address;
     private final int port;
+
+    private int clientID;
+    private int messageID;
 
     private Socket socket;
     private InputStream inputStream;
@@ -55,8 +61,15 @@ public class KVStore implements KVCommInterface {
             inputStream = socket.getInputStream();
             inputReader = new RecordReader(inputStream, RECORD_SEPARATOR);
             outputStream = socket.getOutputStream();
+
+            // TODO generate on server?
+            this.clientID = new Random().nextInt();
+            ThreadContext.put("clientID", Integer.toString(clientID));
+            this.messageID = 0;
+
             connected = true;
-            LOG.info("Connected successfully to {} {}", address, port);
+            LOG.info("Connected successfully to {} {}, client ID: {}",
+                    address, port, clientID);
         } catch (IOException e) {
             cleanConnectionShutdown();
             throw new ConnectionException(address, port);
@@ -84,11 +97,7 @@ public class KVStore implements KVCommInterface {
         ensureConnected();
 
         KVMessage outgoing = new DefaultKVMessage(key, value, KVMessage.StatusType.PUT);
-        byte[] outgoingPayload = Protocol.encode(outgoing);
-        send(outgoingPayload);
-
-        byte[] replyPayload = receive();
-        KVMessage reply = parseResponse(replyPayload);
+        KVMessage reply = sendAndGetReply(outgoing);
 
         return reply;
     }
@@ -101,11 +110,7 @@ public class KVStore implements KVCommInterface {
         ensureConnected();
 
         KVMessage outgoing = new DefaultKVMessage(key, null, KVMessage.StatusType.GET);
-        byte[] outgoingPayload = Protocol.encode(outgoing);
-        send(outgoingPayload);
-
-        byte[] replyPayload = receive();
-        KVMessage reply = parseResponse(replyPayload);
+        KVMessage reply = sendAndGetReply(outgoing);
 
         return reply;
     }
@@ -117,11 +122,7 @@ public class KVStore implements KVCommInterface {
         ensureConnected();
 
         KVMessage outgoing = new DefaultKVMessage(key, null, KVMessage.StatusType.DELETE);
-        byte[] outgoingPayload = Protocol.encode(outgoing);
-        send(outgoingPayload);
-
-        byte[] replyPayload = receive();
-        KVMessage reply = parseResponse(replyPayload);
+        KVMessage reply = sendAndGetReply(outgoing);
 
         return reply;
     }
@@ -134,13 +135,13 @@ public class KVStore implements KVCommInterface {
             throw new CommunicationException("Could not decode reply.", e);
         }
 
-        if (reply.getStatus() == KVMessage.StatusType.PUT_ERROR) {
-            throw new ServerSideException(reply.getValue());
-        } else if (reply.getStatus() == KVMessage.StatusType.GET_ERROR) {
-            throw new ServerSideException(reply.getValue());
-        } else if (reply.getStatus() == KVMessage.StatusType.DELETE_ERROR) {
-            throw new ServerSideException(reply.getValue());
-        }
+//        if (reply.getStatus() == KVMessage.StatusType.PUT_ERROR) {
+//            throw new ServerSideException(reply.getValue());
+//        } else if (reply.getStatus() == KVMessage.StatusType.GET_ERROR) {
+//            throw new ServerSideException(reply.getValue());
+//        } else if (reply.getStatus() == KVMessage.StatusType.DELETE_ERROR) {
+//            throw new ServerSideException(reply.getValue());
+//        }
 
         return reply;
     }
@@ -153,12 +154,24 @@ public class KVStore implements KVCommInterface {
         return connected;
     }
 
+    private synchronized KVMessage sendAndGetReply(KVMessage msg) throws ClientException {
+        CorrelationInformation correlationInformation =
+                new CorrelationInformation(clientID, ++messageID);
+        ThreadContext.put("correlationID", Integer.toString(messageID));
+
+        byte[] outgoingPayload = Protocol.encode(msg, correlationInformation);
+        send(outgoingPayload);
+
+        byte[] replyPayload = receive();
+        KVMessage reply = parseResponse(replyPayload);
+
+        return reply;
+    }
+
     private void send(byte[] data) throws CommunicationException {
         try {
-            synchronized (outputStream) {
-                outputStream.write(data);
-                outputStream.write(RECORD_SEPARATOR);
-            }
+            outputStream.write(data);
+            outputStream.write(RECORD_SEPARATOR);
         } catch (IOException e) {
             cleanConnectionShutdown();
             throw new CommunicationException("Could not send data.", e);
@@ -167,9 +180,7 @@ public class KVStore implements KVCommInterface {
 
     private byte[] receive() throws CommunicationException {
         try {
-            synchronized (inputStream) {
-                return inputReader.read();
-            }
+            return inputReader.read();
         } catch (IOException e) {
             cleanConnectionShutdown();
             throw new CommunicationException("Could not receive data.", e);

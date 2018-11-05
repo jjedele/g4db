@@ -2,16 +2,23 @@ package testing;
 
 import app_kvServer.CacheReplacementStrategy;
 import app_kvServer.KVServer;
-import app_kvServer.persistence.PersistenceService;
 import junit.framework.Test;
 import junit.framework.TestSuite;
+import java.io.File;
 
 
 public class AllTests {
 
     static {
         try {
-            new KVServer(50000, 10, CacheReplacementStrategy.FIFO);
+            File dataDirectory = new File(System.getProperty("java.io.tmpdir"),
+                    "testserver" + System.currentTimeMillis());
+            KVServer server =
+                    new KVServer(50000, dataDirectory,10,
+                            CacheReplacementStrategy.FIFO);
+            new Thread(server).start();
+            // make sure the server is up
+            Thread.sleep(200);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -24,8 +31,7 @@ public class AllTests {
         clientSuite.addTestSuite(AdditionalTest.class);
         clientSuite.addTestSuite(RecordReaderTest.class);
         clientSuite.addTestSuite(ProtocolTest.class);
-        clientSuite.addTestSuite(PersistenceStorageTest.class);
-        clientSuite.addTestSuite(CachedDiskTest.class);
+        clientSuite.addTestSuite(DiskStorageTest.class);
         clientSuite.addTestSuite(CacheTest.class);
         return clientSuite;
     }
