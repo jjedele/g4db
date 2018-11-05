@@ -47,6 +47,10 @@ public class KVStore implements KVCommInterface {
     @Override
     public void connect() throws ClientException {
         try {
+            if (port > 65535) {
+                throw new ConnectionException("Illegal port: " + port);
+            }
+
             socket = new Socket(address, port);
             inputStream = socket.getInputStream();
             inputReader = new RecordReader(inputStream, RECORD_SEPARATOR);
