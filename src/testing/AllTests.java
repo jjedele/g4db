@@ -33,6 +33,7 @@ public class AllTests {
         clientSuite.addTestSuite(ProtocolTest.class);
         clientSuite.addTestSuite(DiskStorageTest.class);
         clientSuite.addTestSuite(CacheTest.class);
+        clientSuite.addTestSuite(HashRingTest.class);
         return clientSuite;
     }
 
