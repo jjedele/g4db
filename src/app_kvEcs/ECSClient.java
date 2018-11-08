@@ -5,6 +5,15 @@ package app_kvEcs;
  */
 public class ECSClient {
 
+    private KVAdmin adminClient;
+
+    // TODO: Add "init <numberOfNodes> <cacheSize> <cacheStrategy>" command
+    // TODO: Add "start" command
+    // TODO: Add "stop" command
+    // TODO: Add "shutDown" command
+    // TODO: Add "addNode <cacheSize> <cacheStrategy>" command
+    // TODO: Add "removeNode" command
+
     /**
      * Start the REPL.
      * @param args

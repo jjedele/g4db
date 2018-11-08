@@ -5,19 +5,7 @@ import common.messages.KVMessage;
 
 import java.io.IOException;
 
-public interface KVCommInterface {
-
-    /**
-     * Establishes a connection to the KV Server.
-     *
-     * @throws IOException if connection could not be established.
-     */
-    void connect() throws ClientException;
-
-    /**
-     * disconnects the client from the currently connected server.
-     */
-    void disconnect();
+public interface KVCommInterface extends KVInterface {
 
     /**
      * Inserts a key-value pair into the KVServer.
@@ -40,9 +28,4 @@ public interface KVCommInterface {
      */
     KVMessage get(String key) throws ClientException;
 
-    /**
-     * Check if a connection to the server is established.
-     * @return true if connected
-     */
-    boolean isConnected();
 }

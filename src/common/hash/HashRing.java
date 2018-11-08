@@ -1,6 +1,8 @@
 package common.hash;
 
 import java.net.InetSocketAddress;
+import java.util.Collection;
+import java.util.Collections;
 
 /**
  * Consistent Hashing distributes a key range and nodes across a ring
@@ -26,6 +28,15 @@ public class HashRing {
     }
 
     /**
+     * Return all nodes on the ring.
+     * @return Server nodes
+     */
+    public Collection<InetSocketAddress> getNodes() {
+        // TODO
+        return Collections.EMPTY_LIST;
+    }
+
+    /**
      * Return the range of hash values a node is responsible for.
      * @param node Address of the node
      * @return {@link Range} of hash values
@@ -42,6 +53,19 @@ public class HashRing {
      * @return Address of the responsible node
      */
     public InetSocketAddress getResponsibleNode(String val) {
+        // TODO
+        return null;
+    }
+
+    /**
+     * Return the node after the given one if it will be added.
+     *
+     * This is the node who's value range will change.
+     *
+     * @param node The node that potentially will be added
+     * @return Successor node on the ring
+     */
+    public InetSocketAddress getSuccessor(InetSocketAddress node) {
         // TODO
         return null;
     }
