@@ -28,4 +28,35 @@ public final class NodeEntry {
         this.keyRange = keyRange;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString() {
+        return String.format("Node(%s, %s, %s)", name, address, keyRange);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int hashCode() {
+        return address.hashCode();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof NodeEntry) {
+            NodeEntry other = (NodeEntry) obj;
+            return this.name.equals(other.name)
+                    && this.address.equals(other.address)
+                    && this.keyRange.equals(other.keyRange);
+        } else {
+            return false;
+        }
+    }
+
 }

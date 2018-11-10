@@ -43,4 +43,33 @@ public class Range {
         return start < val && val <= end;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String toString() {
+        return String.format("(%d,%d]", start, end);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int hashCode() {
+        return getStart();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof Range) {
+            Range other = (Range) obj;
+            return start == other.start && end == other.end;
+        } else {
+            return false;
+        }
+    }
+
 }

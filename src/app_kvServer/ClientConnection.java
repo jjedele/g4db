@@ -2,13 +2,17 @@ package app_kvServer;
 
 import app_kvServer.persistence.PersistenceException;
 import app_kvServer.persistence.PersistenceService;
+import common.DecodingResult;
 import common.Protocol;
 import common.exceptions.ProtocolException;
 import common.messages.DefaultKVMessage;
+import common.messages.ExceptionMessage;
 import common.messages.KVMessage;
+import common.messages.Message;
 import common.utils.RecordReader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.ThreadContext;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -62,11 +66,11 @@ public class ClientConnection implements Runnable {
             inputStream = socket.getInputStream();
             RecordReader recordReader = new RecordReader(inputStream, RECORD_SEPARATOR);
 
+            ThreadContext.put("client", socket.getRemoteSocketAddress().toString());
+            LOG.info("Established connection with client.");
+
             while (running.get()) {
-                byte[] incoming;
-                synchronized (recordReader) {
-                    incoming = recordReader.read();
-                }
+                byte[] incoming = recordReader.read();
 
                 if (incoming == null) {
                     LOG.info("Terminating based on client's request.");
@@ -74,21 +78,24 @@ public class ClientConnection implements Runnable {
                     break;
                 }
 
-                byte[] encodedResponse;
+                Message response;
+                long correlationNumber = 0;
                 try {
-                    KVMessage msg = Protocol.decode(incoming);
-                    KVMessage response = handleIncomingRequest(msg);
-                    encodedResponse = Protocol.encode(response);
+                    DecodingResult request = Protocol.decode(incoming);
+                    correlationNumber = request.getCorrelationNumber();
+                    ThreadContext.put("correlation", Long.toUnsignedString(correlationNumber));
+                    response = handleIncomingKVRequest(request.getKVMessage());
                 } catch (ProtocolException e) {
                     LOG.error("Protocol exception.", e);
-                    encodedResponse = Protocol.encode(e);
+                    response = new ExceptionMessage(e);
                 }
 
-                synchronized (outputStream) {
-                    outputStream.write(encodedResponse);
-                    outputStream.write(RECORD_SEPARATOR);
-                    outputStream.flush();
-                }
+                byte[] outgoing = Protocol.encode(response, correlationNumber);
+                outputStream.write(outgoing);
+                outputStream.write(RECORD_SEPARATOR);
+                outputStream.flush();
+
+                ThreadContext.remove("correlation");
             }
 
             socket.close();
@@ -107,7 +114,7 @@ public class ClientConnection implements Runnable {
         this.running.set(false);
     }
 
-    private KVMessage handleIncomingRequest(KVMessage msg) throws ProtocolException {
+    private KVMessage handleIncomingKVRequest(KVMessage msg) throws ProtocolException {
         KVMessage reply;
 
         switch (msg.getStatus()) {

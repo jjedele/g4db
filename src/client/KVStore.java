@@ -1,7 +1,7 @@
 package client;
 
 import client.exceptions.*;
-import common.CorrelationInformation;
+import common.DecodingResult;
 import common.Protocol;
 import common.exceptions.ProtocolException;
 import common.messages.DefaultKVMessage;
@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.util.Random;
 
 public class KVStore implements KVCommInterface {
 
@@ -25,8 +24,7 @@ public class KVStore implements KVCommInterface {
     private final String address;
     private final int port;
 
-    private int clientID;
-    private int messageID;
+    private long correlationID;
 
     private Socket socket;
     private InputStream inputStream;
@@ -62,14 +60,11 @@ public class KVStore implements KVCommInterface {
             inputReader = new RecordReader(inputStream, RECORD_SEPARATOR);
             outputStream = socket.getOutputStream();
 
-            // TODO generate on server?
-            this.clientID = new Random().nextInt();
-            ThreadContext.put("clientID", Integer.toString(clientID));
-            this.messageID = 0;
+            ThreadContext.put("client", socket.getLocalSocketAddress().toString());
+            this.correlationID = 0;
 
             connected = true;
-            LOG.info("Connected successfully to {} {}, client ID: {}",
-                    address, port, clientID);
+            LOG.info("Connected successfully to {}", socket.getRemoteSocketAddress());
         } catch (IOException e) {
             cleanConnectionShutdown();
             throw new ConnectionException(address, port);
@@ -127,25 +122,6 @@ public class KVStore implements KVCommInterface {
         return reply;
     }
 
-    private KVMessage parseResponse(byte[] replyPayload) throws ClientException {
-        KVMessage reply;
-        try {
-            reply = Protocol.decode(replyPayload);
-        } catch (ProtocolException e) {
-            throw new CommunicationException("Could not decode reply.", e);
-        }
-
-//        if (reply.getStatus() == KVMessage.StatusType.PUT_ERROR) {
-//            throw new ServerSideException(reply.getValue());
-//        } else if (reply.getStatus() == KVMessage.StatusType.GET_ERROR) {
-//            throw new ServerSideException(reply.getValue());
-//        } else if (reply.getStatus() == KVMessage.StatusType.DELETE_ERROR) {
-//            throw new ServerSideException(reply.getValue());
-//        }
-
-        return reply;
-    }
-
     /**
      * {@inheritDoc}
      */
@@ -155,17 +131,23 @@ public class KVStore implements KVCommInterface {
     }
 
     private synchronized KVMessage sendAndGetReply(KVMessage msg) throws ClientException {
-        CorrelationInformation correlationInformation =
-                new CorrelationInformation(clientID, ++messageID);
-        ThreadContext.put("correlationID", Integer.toString(messageID));
+        correlationID++;
+        ThreadContext.put("correlation", Long.toUnsignedString(correlationID));
 
-        byte[] outgoingPayload = Protocol.encode(msg, correlationInformation);
+        byte[] outgoingPayload = Protocol.encode(msg, correlationID);
         send(outgoingPayload);
 
         byte[] replyPayload = receive();
-        KVMessage reply = parseResponse(replyPayload);
 
-        return reply;
+        try {
+            DecodingResult reply = Protocol.decode(replyPayload);
+
+            return reply.getKVMessage();
+        } catch (ProtocolException e) {
+            throw new CommunicationException("Could not decode reply.", e);
+        } finally {
+            ThreadContext.remove("correlation");
+        }
     }
 
     private void send(byte[] data) throws CommunicationException {
