@@ -43,4 +43,8 @@ public class ExceptionMessage implements Message {
         return message;
     }
 
+    @Override
+    public String toString() {
+        return String.format("<ExceptionMessage: %s ()>", message, exceptionClass);
+    }
 }

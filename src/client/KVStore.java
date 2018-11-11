@@ -1,7 +1,7 @@
 package client;
 
 import client.exceptions.*;
-import common.DecodingResult;
+import common.CorrelatedMessage;
 import common.Protocol;
 import common.exceptions.ProtocolException;
 import common.messages.DefaultKVMessage;
@@ -140,7 +140,7 @@ public class KVStore implements KVCommInterface {
         byte[] replyPayload = receive();
 
         try {
-            DecodingResult reply = Protocol.decode(replyPayload);
+            CorrelatedMessage reply = Protocol.decode(replyPayload);
 
             return reply.getKVMessage();
         } catch (ProtocolException e) {

@@ -2,7 +2,7 @@ package app_kvServer;
 
 import app_kvServer.persistence.PersistenceException;
 import app_kvServer.persistence.PersistenceService;
-import common.DecodingResult;
+import common.CorrelatedMessage;
 import common.Protocol;
 import common.exceptions.ProtocolException;
 import common.messages.DefaultKVMessage;
@@ -81,7 +81,7 @@ public class ClientConnection implements Runnable {
                 Message response;
                 long correlationNumber = 0;
                 try {
-                    DecodingResult request = Protocol.decode(incoming);
+                    CorrelatedMessage request = Protocol.decode(incoming);
                     correlationNumber = request.getCorrelationNumber();
                     ThreadContext.put("correlation", Long.toUnsignedString(correlationNumber));
                     response = handleIncomingKVRequest(request.getKVMessage());

@@ -1,6 +1,6 @@
 package testing;
 
-import common.DecodingResult;
+import common.CorrelatedMessage;
 import common.Protocol;
 import common.exceptions.ProtocolException;
 import common.hash.NodeEntry;
@@ -37,7 +37,7 @@ public class ProtocolTest extends TestCase {
 
             byte[] encoded = Protocol.encode(message, i);
 
-            DecodingResult decoded = Protocol.decode(encoded);
+            CorrelatedMessage decoded = Protocol.decode(encoded);
 
             assertEquals(i, decoded.getCorrelationNumber());
             assertTrue(decoded.hasKVMessage());
@@ -54,7 +54,7 @@ public class ProtocolTest extends TestCase {
 
         GenericResponse successfulResponse = GenericResponse.success("yeah!");
         byte[] encoded = Protocol.encode(successfulResponse, correlationNumber);
-        DecodingResult decoded = Protocol.decode(encoded);
+        CorrelatedMessage decoded = Protocol.decode(encoded);
 
         assertTrue(decoded.hasAdminMessage());
         assertEquals(correlationNumber, decoded.getCorrelationNumber());
@@ -95,7 +95,7 @@ public class ProtocolTest extends TestCase {
                 new Range(400, 500)));
 
         byte[] encoded = Protocol.encode(request, correlationNumber);
-        DecodingResult decoded = Protocol.decode(encoded);
+        CorrelatedMessage decoded = Protocol.decode(encoded);
 
         assertEquals(correlationNumber, decoded.getCorrelationNumber());
         assertTrue(decoded.hasAdminMessage());
@@ -115,7 +115,7 @@ public class ProtocolTest extends TestCase {
 
         byte[] encoded = Protocol.encode(exceptionMessage, 42);
 
-        DecodingResult decoded = Protocol.decode(encoded);
+        CorrelatedMessage decoded = Protocol.decode(encoded);
 
         assertTrue(decoded.hasExceptionMessage());
         assertEquals(cause.getClass().getName(), decoded.getExceptionMessage().getExceptionClass());

@@ -7,7 +7,7 @@ import common.messages.admin.AdminMessage;
 /**
  * Holds the result of a protocol parsing operation.
  */
-public class DecodingResult {
+public class CorrelatedMessage {
 
     private final long correlationNumber;
     private final KVMessage kvMessage;
@@ -19,7 +19,7 @@ public class DecodingResult {
      * @param correlationNumber
      * @param kvMessage
      */
-    public DecodingResult(long correlationNumber, KVMessage kvMessage) {
+    public CorrelatedMessage(long correlationNumber, KVMessage kvMessage) {
         this.correlationNumber = correlationNumber;
         this.kvMessage = kvMessage;
         this.adminMessage = null;
@@ -31,7 +31,7 @@ public class DecodingResult {
      * @param correlationNumber
      * @param adminMessage
      */
-    public DecodingResult(long correlationNumber, AdminMessage adminMessage) {
+    public CorrelatedMessage(long correlationNumber, AdminMessage adminMessage) {
         this.correlationNumber = correlationNumber;
         this.adminMessage = adminMessage;
         this.kvMessage = null;
@@ -43,7 +43,7 @@ public class DecodingResult {
      * @param correlationNumber
      * @param exceptionMessage
      */
-    public DecodingResult(long correlationNumber, ExceptionMessage exceptionMessage) {
+    public CorrelatedMessage(long correlationNumber, ExceptionMessage exceptionMessage) {
         this.correlationNumber = correlationNumber;
         this.exceptionMessage = exceptionMessage;
         this.kvMessage = null;
@@ -104,6 +104,17 @@ public class DecodingResult {
      */
     public ExceptionMessage getExceptionMessage() {
         return exceptionMessage;
+    }
+
+    @Override
+    public String toString() {
+        if (exceptionMessage != null) {
+            return String.format("<%d:ExceptionMessage: %s>", correlationNumber, exceptionMessage.toString());
+        } else if (kvMessage != null) {
+            return String.format("<%d:KVMessage: %s>", correlationNumber, kvMessage.toString());
+        } else {
+            return String.format("<%d:AdminMessage: %s>", correlationNumber, adminMessage.toString());
+        }
     }
 
 }

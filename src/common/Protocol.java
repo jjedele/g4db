@@ -67,10 +67,10 @@ public final class Protocol {
      * Decode an encoded {@link Message}.
      *
      * @param data Message in encoded binary format
-     * @return {@link DecodingResult}
+     * @return {@link CorrelatedMessage}
      * @throws ProtocolException if the binary data does not conform to the protocol
      */
-    public static DecodingResult decode(byte[] data) throws ProtocolException {
+    public static CorrelatedMessage decode(byte[] data) throws ProtocolException {
         try {
             Scanner scanner = new Scanner(new String(data, StandardCharsets.UTF_8)).
                     useDelimiter(Character.toString(UNIT_SEPARATOR));
@@ -83,15 +83,15 @@ public final class Protocol {
 
             if (contentType == ContentType.KV_MESSAGE) {
                 KVMessage kvMessage = decodeKVMessage(scanner);
-                return new DecodingResult(correlationNumber, kvMessage);
+                return new CorrelatedMessage(correlationNumber, kvMessage);
 
             } else if (contentType == ContentType.EXCEPTION) {
                 ExceptionMessage exceptionMessage = decodeExceptionMessage(scanner);
-                return new DecodingResult(correlationNumber, exceptionMessage);
+                return new CorrelatedMessage(correlationNumber, exceptionMessage);
 
             } else if (contentType == ContentType.ADMIN) {
                 AdminMessage adminMessage = decodeAdminMessage(scanner);
-                return new DecodingResult(correlationNumber, adminMessage);
+                return new CorrelatedMessage(correlationNumber, adminMessage);
 
             } else {
                 throw new ProtocolException("Unsupported content type: " + contentType);
