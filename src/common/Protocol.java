@@ -10,17 +10,12 @@ import common.messages.Message;
 import common.messages.admin.AdminMessage;
 import common.messages.admin.GenericResponse;
 import common.messages.admin.UpdateMetadataRequest;
-import common.utils.BinaryUtils;
-import common.utils.ByteArrayReader;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Scanner;
 
 /**
  * Implementation of the wire protocol.
@@ -30,7 +25,7 @@ public final class Protocol {
     private Protocol() {
     }
 
-    private static final byte UNIT_SEPARATOR = 0x1f;
+    private static final char UNIT_SEPARATOR = 0x1f;
 
     private static final Map<Byte, KVMessage.StatusType> STATUS_BY_OPCODE;
     static {
@@ -49,26 +44,23 @@ public final class Protocol {
      * @return Binary encoded message
      */
     public static byte[] encode(Message msg, long correlationNumber) {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        StringBuilder sb = new StringBuilder();
 
-        try {
-            // write correlation number
-            BinaryUtils.writeLong(bos, correlationNumber);
+        // write correlation number
+        sb.append(correlationNumber);
+        sb.append(UNIT_SEPARATOR);
 
-            if (msg instanceof KVMessage) {
-                encodeKVMessage(bos, (KVMessage) msg);
-            } else if (msg instanceof AdminMessage) {
-                encodeAdminMessage(bos, (AdminMessage) msg);
-            } else if (msg instanceof ExceptionMessage) {
-                encodeExceptionMessage(bos, (ExceptionMessage) msg);
-            } else {
-                throw new AssertionError("Unsupported message class: " + msg.getClass());
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Could not encode message.", e);
+        if (msg instanceof KVMessage) {
+            encodeKVMessage(sb, (KVMessage) msg);
+        } else if (msg instanceof AdminMessage) {
+            encodeAdminMessage(sb, (AdminMessage) msg);
+        } else if (msg instanceof ExceptionMessage) {
+            encodeExceptionMessage(sb, (ExceptionMessage) msg);
+        } else {
+            throw new AssertionError("Unsupported message class: " + msg.getClass());
         }
 
-        return bos.toByteArray();
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     /**
@@ -79,140 +71,165 @@ public final class Protocol {
      * @throws ProtocolException if the binary data does not conform to the protocol
      */
     public static DecodingResult decode(byte[] data) throws ProtocolException {
-        ByteArrayReader reader = new ByteArrayReader(data);
+        try {
+            Scanner scanner = new Scanner(new String(data, StandardCharsets.UTF_8)).
+                    useDelimiter(Character.toString(UNIT_SEPARATOR));
 
-        // correlation number
-        long correlationNumber = reader.readLong();
+            // correlation number
+            long correlationNumber = Long.parseLong(scanner.next());
 
-        // content type
-        byte contentType = reader.readByte();
+            // content type
+            byte contentType = Byte.parseByte(scanner.next());
 
-        if (contentType == ContentType.KV_MESSAGE) {
-            KVMessage kvMessage = decodeKVMessage(reader);
-            return new DecodingResult(correlationNumber, kvMessage);
+            if (contentType == ContentType.KV_MESSAGE) {
+                KVMessage kvMessage = decodeKVMessage(scanner);
+                return new DecodingResult(correlationNumber, kvMessage);
 
-        } else if (contentType == ContentType.EXCEPTION) {
-            ExceptionMessage exceptionMessage = decodeExceptionMessage(reader);
-            return new DecodingResult(correlationNumber, exceptionMessage);
+            } else if (contentType == ContentType.EXCEPTION) {
+                ExceptionMessage exceptionMessage = decodeExceptionMessage(scanner);
+                return new DecodingResult(correlationNumber, exceptionMessage);
 
-        } else if (contentType == ContentType.ADMIN) {
-            AdminMessage adminMessage = decodeAdminMessage(reader);
-            return new DecodingResult(correlationNumber, adminMessage);
+            } else if (contentType == ContentType.ADMIN) {
+                AdminMessage adminMessage = decodeAdminMessage(scanner);
+                return new DecodingResult(correlationNumber, adminMessage);
 
-        } else {
-            throw new ProtocolException("Unsupported content type: " + contentType);
+            } else {
+                throw new ProtocolException("Unsupported content type: " + contentType);
+            }
+        } catch (RuntimeException e) {
+            throw new ProtocolException("Message can not be decoded.", e);
         }
     }
 
-    private static void encodeKVMessage(OutputStream os, KVMessage msg) throws IOException {
+    private static void encodeKVMessage(StringBuilder sb, KVMessage msg) {
         // content type
-        os.write(ContentType.KV_MESSAGE);
+        sb.append(ContentType.KV_MESSAGE);
+        sb.append(UNIT_SEPARATOR);
 
         // operation type
-        os.write(msg.getStatus().opCode);
+        sb.append(msg.getStatus().opCode);
+        sb.append(UNIT_SEPARATOR);
 
         // key
         if (msg.getKey() != null) {
-            BinaryUtils.writeString(os, msg.getKey());
+            // TODO: escape unit separator
+            sb.append(msg.getKey());
         }
-        os.write(UNIT_SEPARATOR);
+        sb.append(UNIT_SEPARATOR);
 
         // value
         if (msg.getValue() != null) {
-            BinaryUtils.writeString(os, msg.getValue());
+            // TODO: escape unit separator
+            sb.append(msg.getValue());
         }
+        sb.append(UNIT_SEPARATOR);
     }
 
-    private static void encodeExceptionMessage(OutputStream os, ExceptionMessage msg) throws IOException {
+    private static void encodeExceptionMessage(StringBuilder sb, ExceptionMessage msg) {
         // content type
-        os.write(ContentType.EXCEPTION);
+        sb.append(ContentType.EXCEPTION);
+        sb.append(UNIT_SEPARATOR);
 
         // exception class
-        BinaryUtils.writeString(os, msg.getExceptionClass());
-        os.write(UNIT_SEPARATOR);
+        sb.append(msg.getExceptionClass());
+        sb.append(UNIT_SEPARATOR);
 
         // message
-        BinaryUtils.writeString(os, msg.getMessage());
+        sb.append(msg.getMessage());
+        sb.append(UNIT_SEPARATOR);
     }
 
-    private static void encodeAdminMessage(OutputStream os, AdminMessage msg) throws IOException {
+    private static void encodeAdminMessage(StringBuilder sb, AdminMessage msg) {
         // content type
-        os.write(ContentType.ADMIN);
+        sb.append(ContentType.ADMIN);
+        sb.append(UNIT_SEPARATOR);
 
         if (msg instanceof GenericResponse) {
-            encodeGenericResponse(os, (GenericResponse) msg);
+            encodeGenericResponse(sb, (GenericResponse) msg);
         } else if (msg instanceof UpdateMetadataRequest) {
-            encodeUpdateMetadataRequest(os, (UpdateMetadataRequest) msg);
+            encodeUpdateMetadataRequest(sb, (UpdateMetadataRequest) msg);
         } else {
             throw new AssertionError("Unsupported AdminMessage: " + msg.getClass());
         }
     }
 
-    private static void encodeGenericResponse(OutputStream os, GenericResponse msg) throws IOException {
-        os.write(GenericResponse.TYPE_CODE);
-        BinaryUtils.writeBool(os, msg.isSuccess());
-        BinaryUtils.writeString(os, msg.getMessage());
+    private static void encodeGenericResponse(StringBuilder sb, GenericResponse msg) {
+        sb.append(GenericResponse.TYPE_CODE);
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(Boolean.toString(msg.isSuccess()));
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getMessage());
+        sb.append(UNIT_SEPARATOR);
     }
 
-    private static void encodeUpdateMetadataRequest(OutputStream os, UpdateMetadataRequest req) throws IOException {
-        os.write(UpdateMetadataRequest.TYPE_CODE);
+    private static void encodeUpdateMetadataRequest(StringBuilder sb, UpdateMetadataRequest req) {
+        sb.append(UpdateMetadataRequest.TYPE_CODE);
+        sb.append(UNIT_SEPARATOR);
+
         for (NodeEntry node : req.getNodes()) {
-            BinaryUtils.writeString(os, node.name);
-            os.write(UNIT_SEPARATOR);
-            BinaryUtils.writeString(os, node.address.getHostName());
-            os.write(UNIT_SEPARATOR);
-            BinaryUtils.writeInt(os, node.address.getPort());
-            BinaryUtils.writeInt(os, node.keyRange.getStart());
-            BinaryUtils.writeInt(os, node.keyRange.getEnd());
+            sb.append(node.name);
+            sb.append(UNIT_SEPARATOR);
+
+            sb.append(node.address.getHostName());
+            sb.append(UNIT_SEPARATOR);
+
+            sb.append(node.address.getPort());
+            sb.append(UNIT_SEPARATOR);
+
+            sb.append(Integer.toUnsignedString(node.keyRange.getStart()));
+            sb.append(UNIT_SEPARATOR);
+
+            sb.append(Integer.toUnsignedString(node.keyRange.getEnd()));
+            sb.append(UNIT_SEPARATOR);
         }
     }
 
-    private static KVMessage decodeKVMessage(ByteArrayReader reader) {
+    private static KVMessage decodeKVMessage(Scanner scanner) {
         // operation type
-        byte opCode = reader.readByte();
+        byte opCode = Byte.parseByte(scanner.next());
         KVMessage.StatusType operationType = STATUS_BY_OPCODE.get(opCode);
 
         // key
-        String key = null;
-        byte[] keyData = reader.readUntil(UNIT_SEPARATOR);
-        if (keyData.length > 0) {
-            key = new String(keyData, StandardCharsets.UTF_8);
+        String key = scanner.next();
+        if (key.length() == 0) {
+            key = null;
         }
 
         // value
-        String value = null;
-        byte[] valueData = reader.readRest();
-        if (valueData.length > 0) {
-            value = new String(valueData, StandardCharsets.UTF_8);
+        String value = scanner.next();
+        if (value.length() == 0) {
+            value = null;
         }
 
         return new DefaultKVMessage(key, value, operationType);
     }
 
-    private static ExceptionMessage decodeExceptionMessage(ByteArrayReader reader) {
-        String className = new String(reader.readUntil(UNIT_SEPARATOR));
-        String message = new String(reader.readRest(), StandardCharsets.UTF_8);
+    private static ExceptionMessage decodeExceptionMessage(Scanner scanner) {
+        String className = scanner.next();
+        String message = scanner.next();
 
         return new ExceptionMessage(className, message);
     }
 
-    private static AdminMessage decodeAdminMessage(ByteArrayReader reader) throws ProtocolException {
-        byte type = reader.readByte();
+    private static AdminMessage decodeAdminMessage(Scanner scanner) throws ProtocolException {
+        byte type = Byte.parseByte(scanner.next());
 
         if (type == GenericResponse.TYPE_CODE) {
-            boolean success = reader.readBoolean();
-            String msg = new String(reader.readRest(), StandardCharsets.UTF_8);
+            boolean success = Boolean.parseBoolean(scanner.next());
+            String msg = scanner.next();
 
             return new GenericResponse(success, msg);
         } else if (type == UpdateMetadataRequest.TYPE_CODE) {
             UpdateMetadataRequest updateMetadataRequest = new UpdateMetadataRequest();
 
-            while (reader.hasRemainingData()) {
-                String nodeName = new String(reader.readUntil(UNIT_SEPARATOR));
-                String hostName = new String(reader.readUntil(UNIT_SEPARATOR));
-                int port = reader.readInt();
-                int rangeStart = reader.readInt();
-                int rangeEnd = reader.readInt();
+            while (scanner.hasNext()) {
+                String nodeName = scanner.next();
+                String hostName = scanner.next();
+                int port = Integer.parseInt(scanner.next());
+                int rangeStart = Integer.parseUnsignedInt(scanner.next());
+                int rangeEnd = Integer.parseUnsignedInt(scanner.next());
 
                 updateMetadataRequest.addNode(new NodeEntry(
                         nodeName,
