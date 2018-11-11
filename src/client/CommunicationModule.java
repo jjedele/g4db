@@ -129,20 +129,19 @@ public class CommunicationModule {
             try {
                 while (!terminated.get() && !restarting.get()) {
                     if (outstandingRequests.isEmpty()) {
-                        Thread.yield();
-                        continue;
+                        // no message, check socket health proactively
+                        outputStream.write(RECORD_SEPARATOR);
+                        Thread.sleep(100);
+                    } else {
+                        AcceptedMessage msg = outstandingRequests.takeFirst();
+                        ThreadContext.put("correlation", Long.toUnsignedString(msg.correlationId));
+
+                        byte[] payload = Protocol.encode(msg.message, msg.correlationId);
+                        outputStream.write(payload, 0, payload.length);
+                        outputStream.write(RECORD_SEPARATOR);
                     }
-
-                    AcceptedMessage msg = outstandingRequests.peek();
-
-                    byte[] payload = Protocol.encode(msg.message, msg.correlationId);
-                    outputStream.write(payload, 0, payload.length);
-                    outputStream.write(RECORD_SEPARATOR);
-
-                    // now we sent the message successfully - remove it from the queue
-                    outstandingRequests.poll();
                 }
-            } catch (IOException e) {
+            } catch (IOException | InterruptedException e) {
                 LOG.error("Could not send message.", e);
                 try {
                     outputStream.close();
@@ -182,6 +181,8 @@ public class CommunicationModule {
 
                     try {
                         CorrelatedMessage result = Protocol.decode(payload);
+
+                        ThreadContext.put("correlation", Long.toUnsignedString(result.getCorrelationNumber()));
 
                         if (!correlatedRequests.containsKey(result.getCorrelationNumber())) {
                             // TODO we could implement observers for this case
@@ -323,24 +324,6 @@ public class CommunicationModule {
                 acceptedMessage.futureResult.completeExceptionally(cancellationException);
             }
             correlatedRequests.clear();
-        }
-    }
-
-    public static void main(String[] args) throws InterruptedException {
-        CommunicationModule cm = new CommunicationModule(new InetSocketAddress("localhost", 50000), 1000);
-
-        cm.start();
-
-        for (int i = 0; i < 100; i++) {
-            KVMessage msg = new DefaultKVMessage("foo", "bar " + i, KVMessage.StatusType.PUT);
-
-            cm.send(msg).thenApply(CorrelatedMessage::getKVMessage).thenApply(KVMessage::toString).thenAccept(System.out::println);
-
-            if (i == 40) {
-                cm.stop();
-            }
-
-            Thread.sleep(1000);
         }
     }
 

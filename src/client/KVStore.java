@@ -2,36 +2,20 @@ package client;
 
 import client.exceptions.*;
 import common.CorrelatedMessage;
-import common.Protocol;
-import common.exceptions.ProtocolException;
 import common.messages.DefaultKVMessage;
 import common.messages.KVMessage;
-import common.utils.RecordReader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.ThreadContext;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
+import java.net.InetSocketAddress;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class KVStore implements KVCommInterface {
 
     private static final Logger LOG = LogManager.getLogger(KVStore.class);
-    private static final byte RECORD_SEPARATOR = 0x1e;
 
-    private final String address;
-    private final int port;
-
-    private long correlationID;
-
-    private Socket socket;
-    private InputStream inputStream;
-    private RecordReader inputReader;
-    private OutputStream outputStream;
-
-    private boolean connected;
+    private final CommunicationModule communicationModule;
 
     /**
      * Initialize KVStore with address and port of KVServer
@@ -40,35 +24,16 @@ public class KVStore implements KVCommInterface {
      * @param port    the port of the KVServer
      */
     public KVStore(String address, int port) {
-        this.address = address;
-        this.port = port;
-        this.connected = false;
+        this.communicationModule = new CommunicationModule(
+                new InetSocketAddress(address, port), 1000);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void connect() throws ClientException {
-        try {
-            if (port > 65535) {
-                throw new ConnectionException("Illegal port: " + port);
-            }
-
-            socket = new Socket(address, port);
-            inputStream = socket.getInputStream();
-            inputReader = new RecordReader(inputStream, RECORD_SEPARATOR);
-            outputStream = socket.getOutputStream();
-
-            ThreadContext.put("client", socket.getLocalSocketAddress().toString());
-            this.correlationID = 0;
-
-            connected = true;
-            LOG.info("Connected successfully to {}", socket.getRemoteSocketAddress());
-        } catch (IOException e) {
-            cleanConnectionShutdown();
-            throw new ConnectionException(address, port);
-        }
+    public void connect() {
+        communicationModule.start();
     }
 
     /**
@@ -76,7 +41,7 @@ public class KVStore implements KVCommInterface {
      */
     @Override
     public void disconnect() {
-        cleanConnectionShutdown();
+        communicationModule.stop();
     }
 
     /**
@@ -88,8 +53,6 @@ public class KVStore implements KVCommInterface {
         if (value == null || "null".equals(value)) {
             return delete(key);
         }
-
-        ensureConnected();
 
         KVMessage outgoing = new DefaultKVMessage(key, value, KVMessage.StatusType.PUT);
         KVMessage reply = sendAndGetReply(outgoing);
@@ -127,78 +90,24 @@ public class KVStore implements KVCommInterface {
      */
     @Override
     public boolean isConnected() {
-        return connected;
+        return communicationModule.isRunning();
     }
 
     private synchronized KVMessage sendAndGetReply(KVMessage msg) throws ClientException {
-        correlationID++;
-        ThreadContext.put("correlation", Long.toUnsignedString(correlationID));
-
-        byte[] outgoingPayload = Protocol.encode(msg, correlationID);
-        send(outgoingPayload);
-
-        byte[] replyPayload = receive();
-
         try {
-            CorrelatedMessage reply = Protocol.decode(replyPayload);
-
-            return reply.getKVMessage();
-        } catch (ProtocolException e) {
-            throw new CommunicationException("Could not decode reply.", e);
-        } finally {
-            ThreadContext.remove("correlation");
+            return communicationModule
+                    .send(msg)
+                    .thenApply(CorrelatedMessage::getKVMessage)
+                    .get(30, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new ClientException("Could not process message.", e);
         }
     }
 
-    private void send(byte[] data) throws CommunicationException {
-        try {
-            outputStream.write(data);
-            outputStream.write(RECORD_SEPARATOR);
-        } catch (IOException e) {
-            cleanConnectionShutdown();
-            throw new CommunicationException("Could not send data.", e);
-        }
-    }
-
-    private byte[] receive() throws CommunicationException {
-        try {
-            return inputReader.read();
-        } catch (IOException e) {
-            cleanConnectionShutdown();
-            throw new CommunicationException("Could not receive data.", e);
-        }
-    }
-
-    private void ensureConnected() throws ClientException {
-        if (!connected) {
+    private void ensureConnected() throws DisconnectedException {
+        if (!isConnected()) {
             throw new DisconnectedException();
         }
-    }
-
-    private void cleanConnectionShutdown() {
-        LOG.info("Closing connection.");
-        if (inputStream != null) {
-            try {
-                inputStream.close();
-            } catch (IOException e) {
-                LOG.error("Error closing connection.", e);
-            }
-        }
-        if (outputStream != null) {
-            try {
-                outputStream.close();
-            } catch (IOException e) {
-                LOG.error("Error closing connection.", e);
-            }
-        }
-        if (socket != null) {
-            try {
-                socket.close();
-            } catch (IOException e) {
-                LOG.error("Error closing connection.", e);
-            }
-        }
-        connected = false;
     }
 
 }

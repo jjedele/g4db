@@ -76,6 +76,9 @@ public class ClientConnection implements Runnable {
                     LOG.info("Terminating based on client's request.");
                     terminate();
                     break;
+                } else if (incoming.length == 0) {
+                    // client keep alive
+                    continue;
                 }
 
                 Message response;
