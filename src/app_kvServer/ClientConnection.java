@@ -9,6 +9,7 @@ import common.messages.DefaultKVMessage;
 import common.messages.ExceptionMessage;
 import common.messages.KVMessage;
 import common.messages.Message;
+import common.messages.admin.*;
 import common.utils.RecordReader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -32,6 +33,7 @@ public class ClientConnection implements Runnable {
     private final AtomicBoolean running;
     private final PersistenceService persistenceService;
     private final SessionRegistry sessionRegistry;
+    private final ServerState serverState;
 
     private final Socket socket;
     private InputStream inputStream;
@@ -42,14 +44,17 @@ public class ClientConnection implements Runnable {
      * @param clientSocket Socket for the client connection
      * @param persistenceService Instance of {@link PersistenceService} to use
      * @param sessionRegistry Instance of {@link SessionRegistry} to register with
+     * @param serverState Global server state
      */
     public ClientConnection(Socket clientSocket,
                             PersistenceService persistenceService,
-                            SessionRegistry sessionRegistry) {
+                            SessionRegistry sessionRegistry,
+                            ServerState serverState) {
         this.socket = clientSocket;
         this.running = new AtomicBoolean(false);
         this.persistenceService = persistenceService;
         this.sessionRegistry = sessionRegistry;
+        this.serverState = serverState;
     }
 
     /**
@@ -77,7 +82,7 @@ public class ClientConnection implements Runnable {
                     terminate();
                     break;
                 } else if (incoming.length == 0) {
-                    // client keep alive
+                    // client keep alive, ignore
                     continue;
                 }
 
@@ -86,8 +91,7 @@ public class ClientConnection implements Runnable {
                 try {
                     CorrelatedMessage request = Protocol.decode(incoming);
                     correlationNumber = request.getCorrelationNumber();
-                    ThreadContext.put("correlation", Long.toUnsignedString(correlationNumber));
-                    response = handleIncomingKVRequest(request.getKVMessage());
+                    response = handleIncomingMessage(request);
                 } catch (ProtocolException e) {
                     LOG.error("Protocol exception.", e);
                     response = new ExceptionMessage(e);
@@ -117,7 +121,24 @@ public class ClientConnection implements Runnable {
         this.running.set(false);
     }
 
+    private Message handleIncomingMessage(CorrelatedMessage request) throws ProtocolException {
+        ThreadContext.put("correlation", Long.toUnsignedString(request.getCorrelationNumber()));
+
+        if (request.hasKVMessage()) {
+            return handleIncomingKVRequest(request.getKVMessage());
+        } else if (request.hasAdminMessage()) {
+            return handleAdminMessage(request.getAdminMessage());
+        } else {
+            throw new ProtocolException("Unsupported request: " + request);
+        }
+    }
+
     private KVMessage handleIncomingKVRequest(KVMessage msg) throws ProtocolException {
+        // ensure the server is currently not stopped and return appropriate message otherwise
+        if (serverState.isStopped()) {
+            return new DefaultKVMessage(msg.getKey(), null, KVMessage.StatusType.SERVER_STOPPED);
+        }
+
         KVMessage reply;
 
         switch (msg.getStatus()) {
@@ -139,6 +160,11 @@ public class ClientConnection implements Runnable {
 
     private KVMessage handlePutRequest(KVMessage msg) {
         assert msg.getStatus() == KVMessage.StatusType.PUT;
+
+        // ensure the write lock of the server is currently not enabled
+        if (serverState.isWriteLockActive()) {
+            return new DefaultKVMessage(msg.getKey(), null, KVMessage.StatusType.SERVER_WRITE_LOCK);
+        }
 
         LOG.debug("Handling PUT request for key: {}", msg.getKey());
 
@@ -197,6 +223,11 @@ public class ClientConnection implements Runnable {
     private KVMessage handleDeleteRequest(KVMessage msg) {
         assert msg.getStatus() == KVMessage.StatusType.DELETE;
 
+        // ensure the write lock of the server is currently not enabled
+        if (serverState.isWriteLockActive()) {
+            return new DefaultKVMessage(msg.getKey(), null, KVMessage.StatusType.SERVER_WRITE_LOCK);
+        }
+
         LOG.debug("Handling DELETE request for key: {}", msg.getKey());
 
         KVMessage reply;
@@ -218,6 +249,32 @@ public class ClientConnection implements Runnable {
         }
 
         return reply;
+    }
+
+    private AdminMessage handleAdminMessage(AdminMessage msg) {
+        if (msg instanceof StartServerRequest) {
+            serverState.setStopped(false);
+            LOG.info("Admin: Started the server.");
+            return GenericResponse.success();
+        } else if (msg instanceof StopServerRequest) {
+            serverState.setStopped(true);
+            LOG.info("Admin: Stopped the server.");
+            return GenericResponse.success();
+        } else if (msg instanceof ShutDownServerRequest) {
+            sessionRegistry.requestShutDown();
+            LOG.info("Admin: Shutdown requested.");
+            return GenericResponse.success();
+        } else if (msg instanceof EnableWriteLockRequest) {
+            serverState.setWriteLockActive(true);
+            LOG.info("Admin: Enabled write lock.");
+            return GenericResponse.success();
+        } else if (msg instanceof DisableWriteLockRequest) {
+            serverState.setWriteLockActive(false);
+            LOG.info("Admin: Disabled write lock.");
+            return GenericResponse.success();
+        } else {
+            throw new AssertionError("Admin message handler not implemented: " + msg.getClass());
+        }
     }
 
     private void cleanConnectionShutdown() {

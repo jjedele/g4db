@@ -24,6 +24,14 @@ public class GenericResponse extends AdminMessage {
 
     /**
      * Create a success response.
+     * @return The response
+     */
+    public static GenericResponse success() {
+        return new GenericResponse(true, null);
+    }
+
+    /**
+     * Create a success response.
      * @param message An optional status message
      * @return The response
      */

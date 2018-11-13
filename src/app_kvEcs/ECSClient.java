@@ -1,5 +1,10 @@
 package app_kvEcs;
 
+import client.KVAdminInterface;
+import client.exceptions.ClientException;
+
+import java.net.InetSocketAddress;
+
 /**
  * External Configuration Service (ECS)
  */
@@ -18,8 +23,13 @@ public class ECSClient {
      * Start the REPL.
      * @param args
      */
-    public static void main(String[] args) {
-        System.out.println("Not implemented.");
+    public static void main(String[] args) throws ClientException, InterruptedException {
+        KVAdminInterface adminClient = new client.KVAdmin(new InetSocketAddress("localhost", 50000));
+        adminClient.connect();
+
+        adminClient.shutDown();
+
+        adminClient.disconnect();
     }
 
 }
