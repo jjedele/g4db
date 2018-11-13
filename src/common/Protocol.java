@@ -7,9 +7,9 @@ import common.messages.DefaultKVMessage;
 import common.messages.ExceptionMessage;
 import common.messages.KVMessage;
 import common.messages.Message;
-import common.messages.admin.AdminMessage;
-import common.messages.admin.GenericResponse;
-import common.messages.admin.UpdateMetadataRequest;
+import common.messages.admin.*;
+
+import javax.xml.soap.Node;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -148,9 +148,24 @@ public final class Protocol {
             encodeGenericResponse(sb, (GenericResponse) msg);
         } else if (msg instanceof UpdateMetadataRequest) {
             encodeUpdateMetadataRequest(sb, (UpdateMetadataRequest) msg);
+        } else if (msg instanceof StartServerRequest) {
+            encodeSimpleAdminMessage(sb, StartServerRequest.TYPE_CODE);
+        } else if (msg instanceof StopServerRequest) {
+            encodeSimpleAdminMessage(sb, StopServerRequest.TYPE_CODE);
+        } else if (msg instanceof ShutDownServerRequest) {
+            encodeSimpleAdminMessage(sb, ShutDownServerRequest.TYPE_CODE);
+        } else if (msg instanceof EnableWriteLockRequest) {
+            encodeSimpleAdminMessage(sb, EnableWriteLockRequest.TYPE_CODE);
+        } else if (msg instanceof DisableWriteLockRequest) {
+            encodeSimpleAdminMessage(sb, DisableWriteLockRequest.TYPE_CODE);
         } else {
             throw new AssertionError("Unsupported AdminMessage: " + msg.getClass());
         }
+    }
+
+    private static void encodeSimpleAdminMessage(StringBuilder sb, byte typeCode) {
+        sb.append(typeCode);
+        sb.append(UNIT_SEPARATOR);
     }
 
     private static void encodeGenericResponse(StringBuilder sb, GenericResponse msg) {
@@ -168,22 +183,8 @@ public final class Protocol {
         sb.append(UpdateMetadataRequest.TYPE_CODE);
         sb.append(UNIT_SEPARATOR);
 
-        for (NodeEntry node : req.getNodes()) {
-            sb.append(node.name);
-            sb.append(UNIT_SEPARATOR);
-
-            sb.append(node.address.getHostName());
-            sb.append(UNIT_SEPARATOR);
-
-            sb.append(node.address.getPort());
-            sb.append(UNIT_SEPARATOR);
-
-            sb.append(Integer.toUnsignedString(node.keyRange.getStart()));
-            sb.append(UNIT_SEPARATOR);
-
-            sb.append(Integer.toUnsignedString(node.keyRange.getEnd()));
-            sb.append(UNIT_SEPARATOR);
-        }
+        sb.append(NodeEntry.multipleToSerializableString(req.getNodes()));
+        sb.append(UNIT_SEPARATOR);
     }
 
     private static KVMessage decodeKVMessage(Scanner scanner) {
@@ -224,20 +225,22 @@ public final class Protocol {
         } else if (type == UpdateMetadataRequest.TYPE_CODE) {
             UpdateMetadataRequest updateMetadataRequest = new UpdateMetadataRequest();
 
-            while (scanner.hasNext()) {
-                String nodeName = scanner.next();
-                String hostName = scanner.next();
-                int port = Integer.parseInt(scanner.next());
-                int rangeStart = Integer.parseUnsignedInt(scanner.next());
-                int rangeEnd = Integer.parseUnsignedInt(scanner.next());
-
-                updateMetadataRequest.addNode(new NodeEntry(
-                        nodeName,
-                        new InetSocketAddress(hostName, port),
-                        new Range(rangeStart, rangeEnd)));
+            String encodedNodeEntries = scanner.next();
+            for (NodeEntry entry : NodeEntry.mutlipleFromSerializedString(encodedNodeEntries)) {
+                updateMetadataRequest.addNode(entry);
             }
 
             return updateMetadataRequest;
+        } else if (type == StartServerRequest.TYPE_CODE) {
+            return new StartServerRequest();
+        } else if (type == StopServerRequest.TYPE_CODE) {
+            return new StopServerRequest();
+        } else if (type == ShutDownServerRequest.TYPE_CODE) {
+            return new ShutDownServerRequest();
+        } else if (type == EnableWriteLockRequest.TYPE_CODE) {
+            return new EnableWriteLockRequest();
+        } else if (type == DisableWriteLockRequest.TYPE_CODE) {
+            return new DisableWriteLockRequest();
         } else {
             throw new ProtocolException("Unknown admin message type: " + type);
         }

@@ -8,12 +8,13 @@ import common.hash.Range;
 import common.messages.DefaultKVMessage;
 import common.messages.ExceptionMessage;
 import common.messages.KVMessage;
-import common.messages.admin.GenericResponse;
-import common.messages.admin.UpdateMetadataRequest;
+import common.messages.admin.*;
 import junit.framework.TestCase;
 
 import java.net.InetSocketAddress;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class ProtocolTest extends TestCase {
@@ -107,6 +108,31 @@ public class ProtocolTest extends TestCase {
         Set<NodeEntry> actual = new HashSet<>(decodedRequest.getNodes());
 
         assertEquals(expected, actual);
+    }
+
+    public void testEncodeDecodeSimpleAdminMessages()
+            throws ProtocolException, IllegalAccessException, InstantiationException {
+        List<Class<? extends AdminMessage>> msgTypes = Arrays.asList(
+                StartServerRequest.class,
+                StopServerRequest.class,
+                ShutDownServerRequest.class,
+                EnableWriteLockRequest.class,
+                DisableWriteLockRequest.class);
+
+        long correlation = 0;
+        for (Class<? extends AdminMessage> msgClass : msgTypes) {
+            correlation++;
+
+            AdminMessage msg = msgClass.newInstance();
+
+            byte[] encoded = Protocol.encode(msg, correlation);
+
+            CorrelatedMessage decoded = Protocol.decode(encoded);
+
+            assertEquals(correlation, decoded.getCorrelationNumber());
+            assertTrue(decoded.hasAdminMessage());
+            assertEquals(msg.getClass(), decoded.getAdminMessage().getClass());
+        }
     }
 
     public void testEncodeDecodeExceptionMessage() throws ProtocolException {

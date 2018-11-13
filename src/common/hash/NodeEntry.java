@@ -1,6 +1,11 @@
 package common.hash;
 
 import java.net.InetSocketAddress;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * An entry of a node responsibility table.
@@ -57,6 +62,65 @@ public final class NodeEntry {
         } else {
             return false;
         }
+    }
+
+    /**
+     * Converts this NodeEntry into a machine parsable string representation.
+     * @return Encoded string
+     */
+    public String toSerializableString() {
+        return String.format("%s:%s:%d:%d:%d",
+                name, address.getHostString(), address.getPort(), keyRange.getStart(), keyRange.getEnd());
+    }
+
+    /**
+     * Converts a string-encoded representation to a NodeEntry instance.
+     * @param s Encoded string
+     * @return NodeEntry
+     */
+    public static NodeEntry fromSerializableString(String s) {
+        String[] parts = s.split(":");
+        if (parts.length != 5) {
+            throw new IllegalArgumentException("Not a validly encoded NodeEntry: " + s);
+        }
+
+        String nodeName = parts[0];
+        String hostString = parts[1];
+
+        int port;
+        int rangeStart;
+        int rangeEnd;
+        try {
+            port = Integer.parseInt(parts[2]);
+            rangeStart = Integer.parseInt(parts[3]);
+            rangeEnd = Integer.parseInt(parts[4]);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Not a validly encoded NodeEntry: " + s);
+        }
+        return new NodeEntry(
+                nodeName, new InetSocketAddress(hostString, port), new Range(rangeStart, rangeEnd));
+    }
+
+    /**
+     * Converts a collection of NodeEntries into a machine parsable string representation.
+     * @param nodes Nodes
+     * @return Encoded string
+     */
+    public static String multipleToSerializableString(Collection<NodeEntry> nodes) {
+        return nodes.stream()
+                .map(NodeEntry::toSerializableString)
+                .collect(Collectors.joining(","));
+    }
+
+    /**
+     * Converts a string-encoded version of multiple nodes back into a Java collection.
+     * @param s Encoded string
+     * @return Node entries
+     */
+    public static List<NodeEntry> mutlipleFromSerializedString(String s) {
+        return Stream.of(s.split(","))
+                .map(NodeEntry::fromSerializableString)
+                .collect(Collectors.toList());
     }
 
 }

@@ -10,6 +10,16 @@ public class Range {
 
     /**
      * Default constructor.
+     *
+     * Initializes the range to the maximum range.
+     */
+    public Range() {
+        this.start = Integer.MIN_VALUE;
+        this.end = Integer.MAX_VALUE;
+    }
+
+    /**
+     * Constructor.
      * @param start Start of the range (exclusive)
      * @param end End of the range (inclusive)
      */
