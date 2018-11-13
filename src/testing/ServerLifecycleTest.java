@@ -5,12 +5,16 @@ import app_kvServer.KVServer;
 import client.KVAdmin;
 import client.KVStore;
 import client.exceptions.ClientException;
+import common.hash.NodeEntry;
+import common.hash.Range;
 import common.messages.KVMessage;
 import common.messages.admin.GenericResponse;
+import common.messages.admin.UpdateMetadataRequest;
 import junit.framework.TestCase;
 
 import java.io.File;
 import java.net.InetSocketAddress;
+import java.util.Arrays;
 import java.util.Random;
 
 public class ServerLifecycleTest extends TestCase {
@@ -25,6 +29,7 @@ public class ServerLifecycleTest extends TestCase {
     @Override
     protected void setUp() throws Exception {
         // server
+        System.setProperty("hash_test_mode", "true");
         port = new Random().nextInt(10000) + 10000;
         dataDir = new File(System.getProperty("java.io.tmpdir"), "servertest-" + System.currentTimeMillis());
         server = new KVServer(port, dataDir, 100, CacheReplacementStrategy.FIFO);
@@ -91,6 +96,40 @@ public class ServerLifecycleTest extends TestCase {
 
         reply = kvClient.put("foo", "bar");
         assertEquals(KVMessage.StatusType.PUT_UPDATE, reply.getStatus());
+    }
+
+    public void testKeyRangeResponsibility() throws Exception {
+        startServer();
+
+        String key1 = "foo";
+        int key1Hash = key1.getBytes()[0];
+        String key2 = "bar";
+        int key2Hash = key2.getBytes()[0];
+
+        KVMessage reply = kvClient.put(key1, "baz");
+        assertEquals(KVMessage.StatusType.PUT_SUCCESS, reply.getStatus());
+        reply = kvClient.put(key2, "baz");
+        assertEquals(KVMessage.StatusType.PUT_SUCCESS, reply.getStatus());
+
+        // assign key ranges such that server is responsible for key2 but not key1
+        NodeEntry ourNode = new NodeEntry(
+                "us",
+                new InetSocketAddress("localhost", port),
+                new Range(0, key2Hash));
+        NodeEntry imaginaryNode = new NodeEntry(
+                "us",
+                new InetSocketAddress("localhost", port + 42),
+                new Range(key2Hash, key1Hash));
+
+        GenericResponse updateReply = kvAdmin.updateMetadata(Arrays.asList(ourNode, imaginaryNode));
+        assertTrue(updateReply.getMessage(), updateReply.isSuccess());
+
+        reply = kvClient.get(key2);
+        assertEquals(KVMessage.StatusType.GET_SUCCESS, reply.getStatus());
+
+        reply = kvClient.get(key1);
+        assertEquals(KVMessage.StatusType.SERVER_NOT_RESPONSIBLE, reply.getStatus());
+        assertEquals(NodeEntry.multipleToSerializableString(Arrays.asList(ourNode, imaginaryNode)), reply.getValue());
     }
 
     private void startServer() throws ClientException {

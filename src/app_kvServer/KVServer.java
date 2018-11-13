@@ -11,6 +11,7 @@ import javax.management.ObjectName;
 import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashSet;
@@ -92,7 +93,8 @@ public class KVServer implements Runnable, SessionRegistry {
         this.activeSessions = new HashSet<>();
         this.dataDirectory = dataDirectory;
         this.running = new AtomicBoolean(false);
-        this.serverState = new ServerState("server_instance_" + port);
+        String hostname = System.getenv().getOrDefault("KV_HOSTNAME", "localhost");
+        this.serverState = new ServerState(new InetSocketAddress(hostname, port));
     }
 
     /**

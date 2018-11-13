@@ -9,5 +9,6 @@ public interface ServerStateMBean {
     void setStopped(boolean stopped);
     boolean isWriteLockActive();
     void setWriteLockActive(boolean writeLockActive);
+    void setClusterNodesFromString(String s);
 
 }

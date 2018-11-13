@@ -2,16 +2,16 @@ package app_kvServer;
 
 import common.hash.NodeEntry;
 import common.hash.Range;
-import java.util.HashSet;
-import java.util.Properties;
-import java.util.Set;
+
+import java.net.InetSocketAddress;
+import java.util.*;
 
 /**
  * Global server state.
  */
 public class ServerState implements ServerStateMBean {
 
-    private final String id;
+    private final InetSocketAddress myself;
     private final Properties properties;
     private volatile boolean stopped;
     private volatile boolean writeLockActive;
@@ -20,10 +20,10 @@ public class ServerState implements ServerStateMBean {
 
     /**
      * Constructor.
-     * @param id Unique ID used for persisted parts of the state.
+     * @param myself Address of the currently running server
      */
-    public ServerState(String id) {
-        this.id = id;
+    public ServerState(InetSocketAddress myself) {
+        this.myself = myself;
         this.properties = new Properties();
         this.stopped = true;
         this.writeLockActive = false;
@@ -92,8 +92,19 @@ public class ServerState implements ServerStateMBean {
      * Set the current cluster nodes.
      * @param clusterNodes Set of current cluster nodes
      */
-    public synchronized void setClusterNodes(Set<NodeEntry> clusterNodes) {
-        this.clusterNodes = clusterNodes;
+    public synchronized void setClusterNodes(Collection<NodeEntry> clusterNodes) {
+        this.clusterNodes = new HashSet<>(clusterNodes);
+
+        for (NodeEntry node : clusterNodes) {
+            if (myself.equals(node.address)) {
+                setKeyRange(node.keyRange);
+            }
+        }
+    }
+
+    @Override
+    public void setClusterNodesFromString(String s) {
+        setClusterNodes(NodeEntry.mutlipleFromSerializedString(s));
     }
 
 }

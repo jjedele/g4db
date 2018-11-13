@@ -5,6 +5,7 @@ import app_kvServer.persistence.PersistenceService;
 import common.CorrelatedMessage;
 import common.Protocol;
 import common.exceptions.ProtocolException;
+import common.hash.NodeEntry;
 import common.messages.DefaultKVMessage;
 import common.messages.ExceptionMessage;
 import common.messages.KVMessage;
@@ -20,6 +21,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 /**
  * A ClientConnection represents an active session with a client application.
@@ -34,6 +36,7 @@ public class ClientConnection implements Runnable {
     private final PersistenceService persistenceService;
     private final SessionRegistry sessionRegistry;
     private final ServerState serverState;
+    private final Function<String, Integer> hashFunction;
 
     private final Socket socket;
     private InputStream inputStream;
@@ -55,6 +58,15 @@ public class ClientConnection implements Runnable {
         this.persistenceService = persistenceService;
         this.sessionRegistry = sessionRegistry;
         this.serverState = serverState;
+
+        // we want a deterministic way to produce hashes when in testing mode
+        if ("true".equals(System.getProperty("hash_test_mode"))) {
+            LOG.info("Using deterministic key hashing for testing.");
+            hashFunction = (String key) -> (int) key.getBytes()[0];
+        } else {
+            // TODO replace with the real thing
+            hashFunction = (String key) -> (int) key.getBytes()[0];
+        }
     }
 
     /**
@@ -137,6 +149,15 @@ public class ClientConnection implements Runnable {
         // ensure the server is currently not stopped and return appropriate message otherwise
         if (serverState.isStopped()) {
             return new DefaultKVMessage(msg.getKey(), null, KVMessage.StatusType.SERVER_STOPPED);
+        }
+
+        // ensure we're responsible
+        int keyHash = hashFunction.apply(msg.getKey());
+        if (!serverState.getKeyRange().contains(keyHash)) {
+            return new DefaultKVMessage(
+                    msg.getKey(),
+                    NodeEntry.multipleToSerializableString(serverState.getClusterNodes()),
+                    KVMessage.StatusType.SERVER_NOT_RESPONSIBLE);
         }
 
         KVMessage reply;
@@ -271,6 +292,11 @@ public class ClientConnection implements Runnable {
         } else if (msg instanceof DisableWriteLockRequest) {
             serverState.setWriteLockActive(false);
             LOG.info("Admin: Disabled write lock.");
+            return GenericResponse.success();
+        } else if (msg instanceof UpdateMetadataRequest) {
+            UpdateMetadataRequest updateMetadataRequest = (UpdateMetadataRequest) msg;
+            serverState.setClusterNodes(updateMetadataRequest.getNodes());
+            LOG.info("Admin: Updated meta data.");
             return GenericResponse.success();
         } else {
             throw new AssertionError("Admin message handler not implemented: " + msg.getClass());
