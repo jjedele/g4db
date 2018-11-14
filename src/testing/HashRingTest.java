@@ -34,4 +34,14 @@ public class HashRingTest extends TestCase {
         assertEquals(node2, responsibleNode);
     }
 
+    public void testMD5Hash() {
+        HashRing hashRing = new HashRing();
+
+        int hash = hashRing.getHash("hello world");
+
+        System.out.println(hash);
+
+        // does not throw exception
+    }
+
 }
