@@ -1,8 +1,9 @@
 package common.hash;
 
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.List;
 
 /**
  * Consistent Hashing distributes a key range and nodes across a ring
@@ -11,12 +12,15 @@ import java.util.Collections;
  */
 public class HashRing {
 
+    private final List<InetSocketAddress> nodes = new ArrayList<>();
+
     /**
      * Add a node to the hash ring.
      * @param node Address of the node
      */
     public void addNode(InetSocketAddress node) {
         // TODO
+        nodes.add(node);
     }
 
     /**
@@ -33,7 +37,7 @@ public class HashRing {
      */
     public Collection<InetSocketAddress> getNodes() {
         // TODO
-        return Collections.EMPTY_LIST;
+        return nodes;
     }
 
     /**
