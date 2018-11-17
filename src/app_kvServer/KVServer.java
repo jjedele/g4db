@@ -5,6 +5,7 @@ import app_kvServer.persistence.CachedDiskStorage;
 import app_kvServer.persistence.PersistenceService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.ThreadContext;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -44,6 +45,9 @@ public class KVServer implements Runnable, SessionRegistry {
         int cacheSize = 10000;
         CacheReplacementStrategy strategy = CacheReplacementStrategy.FIFO;
 
+        // make log4j inherit thread contexts from parent thread because we use a lot of workers
+        System.setProperty("log4j2.isThreadContextMapInheritable", "true");
+
         if (args.length >= 1) {
             try {
                 port = Integer.parseUnsignedInt(args[0]);
@@ -69,7 +73,7 @@ public class KVServer implements Runnable, SessionRegistry {
             }
         }
 
-        File dataDirectory = new File("./data");
+        File dataDirectory = new File("./data_" + port);
         KVServer server = new KVServer(port, dataDirectory, cacheSize, strategy);
         // not doing this in a thread by choice
         server.run();
@@ -102,6 +106,8 @@ public class KVServer implements Runnable, SessionRegistry {
      */
     @Override
     public void run() {
+        ThreadContext.put("serverPort", Integer.toString(port));
+
         // try to register server state as MBean
         try {
             MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();

@@ -58,6 +58,9 @@ public class CommunicationModule {
         this.outstandingRequests = new LinkedBlockingDeque<>(bufferCapacity);
         this.correlatedRequests = new ConcurrentHashMap<>();
         this.running = false;
+        // make log4j inherit thread contexts from parent thread because we use a lot of workers
+        System.setProperty("log4j2.isThreadContextMapInheritable", "true");
+        ThreadContext.put("connection", address.toString());
     }
 
     /**

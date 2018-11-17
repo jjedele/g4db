@@ -1,8 +1,8 @@
 package app_kvServer;
 
+import common.hash.HashRing;
 import common.hash.NodeEntry;
 import common.hash.Range;
-
 import java.net.InetSocketAddress;
 import java.util.*;
 
@@ -12,11 +12,9 @@ import java.util.*;
 public class ServerState implements ServerStateMBean {
 
     private final InetSocketAddress myself;
-    private final Properties properties;
     private volatile boolean stopped;
     private volatile boolean writeLockActive;
-    private volatile Range keyRange;
-    private volatile Set<NodeEntry> clusterNodes;
+    private volatile HashRing hashRing;
 
     /**
      * Constructor.
@@ -24,11 +22,16 @@ public class ServerState implements ServerStateMBean {
      */
     public ServerState(InetSocketAddress myself) {
         this.myself = myself;
-        this.properties = new Properties();
         this.stopped = true;
         this.writeLockActive = false;
-        this.keyRange = new Range();
-        this.clusterNodes = new HashSet<>();
+    }
+
+    /**
+     * Return the address of the current server.
+     * @return Address
+     */
+    public InetSocketAddress getMyself() {
+        return myself;
     }
 
     /**
@@ -64,28 +67,11 @@ public class ServerState implements ServerStateMBean {
     }
 
     /**
-     * Get the key range this server is responsible for.
-     * @return Key range
-     */
-    public synchronized Range getKeyRange() {
-        return keyRange;
-    }
-
-    /**
-     * Set the key range this server is responsible for.
-     * @param keyRange Key range
-     */
-    public synchronized void setKeyRange(Range keyRange) {
-        this.keyRange = keyRange;
-        this.properties.setProperty("keyRange", String.format("%d:%d", keyRange.getStart(), keyRange.getEnd()));
-    }
-
-    /**
      * Return the current cluster nodes.
      * @return Set of cluster nodes
      */
-    public synchronized Set<NodeEntry> getClusterNodes() {
-        return clusterNodes;
+    public synchronized HashRing getClusterNodes() {
+        return hashRing;
     }
 
     /**
@@ -93,12 +79,10 @@ public class ServerState implements ServerStateMBean {
      * @param clusterNodes Set of current cluster nodes
      */
     public synchronized void setClusterNodes(Collection<NodeEntry> clusterNodes) {
-        this.clusterNodes = new HashSet<>(clusterNodes);
+        this.hashRing = new HashRing();
 
-        for (NodeEntry node : clusterNodes) {
-            if (myself.equals(node.address)) {
-                setKeyRange(node.keyRange);
-            }
+        for (NodeEntry nodeEntry : clusterNodes) {
+            hashRing.addNode(nodeEntry.address);
         }
     }
 

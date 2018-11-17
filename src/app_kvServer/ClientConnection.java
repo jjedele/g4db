@@ -6,6 +6,7 @@ import common.CorrelatedMessage;
 import common.Protocol;
 import common.exceptions.ProtocolException;
 import common.hash.NodeEntry;
+import common.hash.Range;
 import common.messages.DefaultKVMessage;
 import common.messages.ExceptionMessage;
 import common.messages.KVMessage;
@@ -19,9 +20,12 @@ import org.apache.logging.log4j.ThreadContext;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * A ClientConnection represents an active session with a client application.
@@ -152,11 +156,15 @@ public class ClientConnection implements Runnable {
         }
 
         // ensure we're responsible
-        int keyHash = hashFunction.apply(msg.getKey());
-        if (!serverState.getKeyRange().contains(keyHash)) {
+        InetSocketAddress responsibleNode = serverState.getClusterNodes().getResponsibleNode(msg.getKey());
+        if (!serverState.getMyself().equals(responsibleNode)) {
+            LOG.info("Sending client {} NOT_RESPONSIBLE message with updated nodes.");
+            List<NodeEntry> nodes = serverState.getClusterNodes().getNodes().stream()
+                    .map(address -> new NodeEntry("somenode", address, new Range(0, 1)))
+                    .collect(Collectors.toList());
             return new DefaultKVMessage(
                     msg.getKey(),
-                    NodeEntry.multipleToSerializableString(serverState.getClusterNodes()),
+                    NodeEntry.multipleToSerializableString(nodes),
                     KVMessage.StatusType.SERVER_NOT_RESPONSIBLE);
         }
 
