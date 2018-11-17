@@ -129,6 +129,27 @@ public class ProtocolTest extends TestCase {
         }
     }
 
+    public void testEncodeDecodeMoveDataRequest() throws ProtocolException {
+        InetSocketAddress destination = new InetSocketAddress("somehost.de", 12345);
+        Range range = new Range(0, 500);
+
+        MoveDataRequest moveDataRequest = new MoveDataRequest(destination, range);
+
+        long correlation = 0;
+        byte[] encoded = Protocol.encode(moveDataRequest, correlation);
+
+        CorrelatedMessage decoded = Protocol.decode(encoded);
+
+        assertEquals(correlation, decoded.getCorrelationNumber());
+        assertTrue(decoded.hasAdminMessage());
+        assertEquals(MoveDataRequest.class, decoded.getAdminMessage().getClass());
+
+        MoveDataRequest decodedRequest = (MoveDataRequest) decoded.getAdminMessage();
+
+        assertEquals(destination, decodedRequest.getDestination());
+        assertEquals(range, decodedRequest.getRange());
+    }
+
     public void testEncodeDecodeExceptionMessage() throws ProtocolException {
         Exception cause = new RuntimeException("I fooed the bar.");
         ExceptionMessage exceptionMessage = new ExceptionMessage(cause);
