@@ -44,4 +44,20 @@ public class HashRingTest extends TestCase {
         // does not throw exception
     }
 
+    public void getResponsibleNode() {
+        HashRing hashRing = new TestHashRing();
+
+        InetSocketAddress node1 = new InetSocketAddress("localhost", 1);
+        InetSocketAddress node2 = new InetSocketAddress("localhost", 7);
+        hashRing.addNode(node1);
+        hashRing.addNode(node2);
+
+        InetSocketAddress  ResponsibleNode = hashRing.getResponsibleNode("5");
+        System.out.println(ResponsibleNode);
+
+    }
+    public void getSuccessor(){
+
+    }
+
 }

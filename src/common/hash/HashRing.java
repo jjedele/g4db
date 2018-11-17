@@ -22,9 +22,14 @@ public class HashRing {
      * Add a node to the hash ring.
      * @param node Address of the node
      */
+
+    private String addressToString(InetSocketAddress node){
+        return String.format("%s:%d", node.getHostString(), node.getPort());
+
+    }
+
     public void addNode(InetSocketAddress node) {
-        int nodeKey = getHash(node.toString());
-        //System.out.println(node.toString() + " md5:" + nodeKey);
+        int nodeKey = getHash(addressToString(node));
         circle.put(nodeKey, node);
     }
 
@@ -33,7 +38,7 @@ public class HashRing {
      * @param node Address of the node
      */
     public void removeNode(InetSocketAddress node) {
-        int nodeKey = getHash(node.toString());
+        int nodeKey = getHash(addressToString(node));
         circle.remove(nodeKey);
     }
 
@@ -53,7 +58,7 @@ public class HashRing {
      * @throws IllegalArgumentException if the node does not exist
      */
     public Range getAssignedRange(InetSocketAddress node) {
-        // TODO
+        // TODOgetAssignedRange
         // do later
         return new Range(0, 1);
     }
@@ -63,13 +68,15 @@ public class HashRing {
      * @param val The value
      * @return Address of the responsible node
      */
-    public InetSocketAddress getResponsibleNode(String val) {
+
+        public InetSocketAddress getResponsibleNode(String val) {
         // TODO
         int hashVal = getHash(val);
         for (int key : circle.navigableKeySet()) {
             if (hashVal <= key)
                 return circle.get(key);
         }
+        //In case the predecessor node has a higher position than the actual server
         return circle.firstEntry().getValue();
         //test
     }
@@ -83,8 +90,7 @@ public class HashRing {
      * @return Successor node on the ring
      */
     public InetSocketAddress getSuccessor(InetSocketAddress node) {
-        // TODO
-        int nodeKey = getHash(node.toString());
+        int nodeKey = getHash(addressToString(node));
         if (circle.higherKey(nodeKey) == null)
             return circle.firstEntry().getValue();
         return circle.higherEntry(nodeKey).getValue();
@@ -100,6 +106,7 @@ public class HashRing {
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] d = md.digest(val.getBytes());
+            //Since it is easier to only look at the first 4 Byte
             int hash = d[0] << 24 | (d[1] & 0xff) << 16 | (d[2] & 0xff) << 8 | (d[3] & 0xff);
             return hash;
         } catch (NoSuchAlgorithmException e) {
