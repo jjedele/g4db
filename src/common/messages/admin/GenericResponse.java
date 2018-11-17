@@ -6,8 +6,28 @@ package common.messages.admin;
  */
 public class GenericResponse extends AdminMessage {
 
-    private GenericResponse(boolean success, String message) {
-        // TODO
+    /** The type code for serialization. */
+    public static final byte TYPE_CODE = 0x01;
+
+    private final boolean success;
+    private final String message;
+
+    /**
+     * Default constructor.
+     * @param success If the request was successful
+     * @param message Status/error message
+     */
+    public GenericResponse(boolean success, String message) {
+        this.success = success;
+        this.message = message;
+    }
+
+    /**
+     * Create a success response.
+     * @return The response
+     */
+    public static GenericResponse success() {
+        return new GenericResponse(true, null);
     }
 
     /**
@@ -33,8 +53,7 @@ public class GenericResponse extends AdminMessage {
      * @return True if success
      */
     public boolean isSuccess() {
-        // TODO
-        return false;
+        return success;
     }
 
     /**
@@ -42,8 +61,7 @@ public class GenericResponse extends AdminMessage {
      * @return The message (can be null)
      */
     public String getMessage() {
-        // TODO
-        return null;
+        return message;
     }
 
 }

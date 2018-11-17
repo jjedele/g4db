@@ -1,79 +1,53 @@
 package client;
 
 import client.exceptions.*;
-import common.CorrelationInformation;
-import common.Protocol;
-import common.exceptions.ProtocolException;
+import common.CorrelatedMessage;
+import common.hash.HashRing;
+import common.hash.NodeEntry;
 import common.messages.DefaultKVMessage;
 import common.messages.KVMessage;
-import common.utils.RecordReader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.ThreadContext;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
-import java.util.Random;
+import java.net.InetSocketAddress;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class KVStore implements KVCommInterface {
 
     private static final Logger LOG = LogManager.getLogger(KVStore.class);
-    private static final byte RECORD_SEPARATOR = 0x1e;
 
-    private final String address;
-    private final int port;
-
-    private int clientID;
-    private int messageID;
-
-    private Socket socket;
-    private InputStream inputStream;
-    private RecordReader inputReader;
-    private OutputStream outputStream;
-
-    private boolean connected;
+    private final HashRing hashRing;
+    private final Map<InetSocketAddress, CommunicationModule> communicationModules;
+    private boolean running;
 
     /**
      * Initialize KVStore with address and port of KVServer
      *
-     * @param address the address of the KVServer
-     * @param port    the port of the KVServer
+     * @param address the address of the seed KVServer
+     * @param port    the port of the seed KVServer
      */
     public KVStore(String address, int port) {
-        this.address = address;
-        this.port = port;
-        this.connected = false;
+        this.hashRing = new HashRing();
+        this.communicationModules = new HashMap<>();
+        // TODO this immediately starts the module right now, see if this is a problem
+        addNodeConnection(new InetSocketAddress(address, port));
+        this.running = true;
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void connect() throws ClientException {
-        try {
-            if (port > 65535) {
-                throw new ConnectionException("Illegal port: " + port);
-            }
-
-            socket = new Socket(address, port);
-            inputStream = socket.getInputStream();
-            inputReader = new RecordReader(inputStream, RECORD_SEPARATOR);
-            outputStream = socket.getOutputStream();
-
-            // TODO generate on server?
-            this.clientID = new Random().nextInt();
-            ThreadContext.put("clientID", Integer.toString(clientID));
-            this.messageID = 0;
-
-            connected = true;
-            LOG.info("Connected successfully to {} {}, client ID: {}",
-                    address, port, clientID);
-        } catch (IOException e) {
-            cleanConnectionShutdown();
-            throw new ConnectionException(address, port);
+    public void connect() {
+        for (CommunicationModule communicationModule : communicationModules.values()) {
+            communicationModule.start();
         }
+        this.running = true;
     }
 
     /**
@@ -81,7 +55,10 @@ public class KVStore implements KVCommInterface {
      */
     @Override
     public void disconnect() {
-        cleanConnectionShutdown();
+        for (CommunicationModule communicationModule : communicationModules.values()) {
+            communicationModule.stop();
+        }
+        this.running = false;
     }
 
     /**
@@ -93,8 +70,6 @@ public class KVStore implements KVCommInterface {
         if (value == null || "null".equals(value)) {
             return delete(key);
         }
-
-        ensureConnected();
 
         KVMessage outgoing = new DefaultKVMessage(key, value, KVMessage.StatusType.PUT);
         KVMessage reply = sendAndGetReply(outgoing);
@@ -127,96 +102,90 @@ public class KVStore implements KVCommInterface {
         return reply;
     }
 
-    private KVMessage parseResponse(byte[] replyPayload) throws ClientException {
-        KVMessage reply;
-        try {
-            reply = Protocol.decode(replyPayload);
-        } catch (ProtocolException e) {
-            throw new CommunicationException("Could not decode reply.", e);
-        }
-
-//        if (reply.getStatus() == KVMessage.StatusType.PUT_ERROR) {
-//            throw new ServerSideException(reply.getValue());
-//        } else if (reply.getStatus() == KVMessage.StatusType.GET_ERROR) {
-//            throw new ServerSideException(reply.getValue());
-//        } else if (reply.getStatus() == KVMessage.StatusType.DELETE_ERROR) {
-//            throw new ServerSideException(reply.getValue());
-//        }
-
-        return reply;
-    }
-
     /**
      * {@inheritDoc}
      */
     @Override
     public boolean isConnected() {
-        return connected;
+        return running;
     }
 
     private synchronized KVMessage sendAndGetReply(KVMessage msg) throws ClientException {
-        CorrelationInformation correlationInformation =
-                new CorrelationInformation(clientID, ++messageID);
-        ThreadContext.put("correlationID", Integer.toString(messageID));
-
-        byte[] outgoingPayload = Protocol.encode(msg, correlationInformation);
-        send(outgoingPayload);
-
-        byte[] replyPayload = receive();
-        KVMessage reply = parseResponse(replyPayload);
-
-        return reply;
-    }
-
-    private void send(byte[] data) throws CommunicationException {
         try {
-            outputStream.write(data);
-            outputStream.write(RECORD_SEPARATOR);
-        } catch (IOException e) {
-            cleanConnectionShutdown();
-            throw new CommunicationException("Could not send data.", e);
+            return communicationModuleForKey(msg.getKey())
+                    .send(msg)
+                    .thenApply(CorrelatedMessage::getKVMessage)
+                    .thenCompose(reply -> checkReplyForResponsibility(reply, msg))
+                    .get(30, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new ClientException("Could not process message.", e);
         }
     }
 
-    private byte[] receive() throws CommunicationException {
-        try {
-            return inputReader.read();
-        } catch (IOException e) {
-            cleanConnectionShutdown();
-            throw new CommunicationException("Could not receive data.", e);
+    private CompletableFuture<KVMessage> checkReplyForResponsibility(KVMessage response, KVMessage originalRequest) {
+        if (response.getStatus() == KVMessage.StatusType.SERVER_NOT_RESPONSIBLE) {
+            // update the local server list
+            List<InetSocketAddress> updatedServers = Stream
+                    .of(response.getValue())
+                    .map(NodeEntry::mutlipleFromSerializedString)
+                    .flatMap(List::stream)
+                    .map(node -> node.address)
+                    .collect(Collectors.toList());
+            LOG.debug("Updating servers from NOT_RESPONSIBLE response: " + updatedServers);
+            updateConnections(updatedServers);
+            LOG.info("Updated servers from NOT_RESPONSIBLE response: " + updatedServers);
+
+            // retry after updating the server list
+            // TODO: can we simply assume that it works the second time?
+            return communicationModuleForKey(originalRequest.getKey())
+                    .send(originalRequest)
+                    .thenApply(CorrelatedMessage::getKVMessage);
+        } else {
+            return CompletableFuture.completedFuture(response);
         }
     }
 
-    private void ensureConnected() throws ClientException {
-        if (!connected) {
+    private CommunicationModule communicationModuleForKey(String key) {
+        InetSocketAddress responsibleNode = hashRing.getResponsibleNode(key);
+        CommunicationModule communicationModule = communicationModules.get(responsibleNode);
+        return communicationModule;
+    }
+
+    private void updateConnections(Collection<InetSocketAddress> newNodes) {
+        Set<InetSocketAddress> nodesToAdd = new HashSet<>(newNodes);
+        nodesToAdd.removeAll(hashRing.getNodes());
+
+        Set<InetSocketAddress> nodesToRemove = new HashSet<>(hashRing.getNodes());
+        nodesToRemove.removeAll(newNodes);
+
+        synchronized (communicationModules) {
+            for (InetSocketAddress node : nodesToAdd) {
+                addNodeConnection(node);
+            }
+
+            for (InetSocketAddress node : nodesToRemove) {
+                removeNodeConnection(node);
+            }
+        }
+    }
+
+    private void addNodeConnection(InetSocketAddress node) {
+        CommunicationModule communicationModule = new CommunicationModule(node, 1000);
+        communicationModule.start();
+        communicationModules.put(node, communicationModule);
+        hashRing.addNode(node);
+    }
+
+    private void removeNodeConnection(InetSocketAddress node) {
+        hashRing.removeNode(node);
+        CommunicationModule communicationModule = communicationModules.remove(node);
+        communicationModule.stop();
+    }
+
+    private void ensureConnected() throws DisconnectedException {
+        if (!isConnected()) {
             throw new DisconnectedException();
         }
-    }
-
-    private void cleanConnectionShutdown() {
-        LOG.info("Closing connection.");
-        if (inputStream != null) {
-            try {
-                inputStream.close();
-            } catch (IOException e) {
-                LOG.error("Error closing connection.", e);
-            }
-        }
-        if (outputStream != null) {
-            try {
-                outputStream.close();
-            } catch (IOException e) {
-                LOG.error("Error closing connection.", e);
-            }
-        }
-        if (socket != null) {
-            try {
-                socket.close();
-            } catch (IOException e) {
-                LOG.error("Error closing connection.", e);
-            }
-        }
-        connected = false;
     }
 
 }

@@ -15,4 +15,9 @@ public final class ContentType {
      */
     public static final byte EXCEPTION = 0x01;
 
+    /**
+     * Administrative message for server management.
+     */
+    public static final byte ADMIN = 0x02;
+
 }
