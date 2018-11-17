@@ -82,18 +82,12 @@ public class ProtocolTest extends TestCase {
         long correlationNumber = 1;
 
         UpdateMetadataRequest request = new UpdateMetadataRequest();
-        request.addNode(new NodeEntry(
-                "anton",
-                new InetSocketAddress("localhost", 42),
-                new Range(0, 4)));
-        request.addNode(new NodeEntry(
-                "berta",
-                new InetSocketAddress("www.google.de", 50000),
-                new Range(5, 7)));
-        request.addNode(new NodeEntry(
-                "sigmund",
-                new InetSocketAddress("127.0.0.1", 123),
-                new Range(400, 500)));
+        request.addNode(
+                new InetSocketAddress("localhost", 42));
+        request.addNode(
+                new InetSocketAddress("www.google.de", 50000));
+        request.addNode(
+                new InetSocketAddress("127.0.0.1", 123));
 
         byte[] encoded = Protocol.encode(request, correlationNumber);
         CorrelatedMessage decoded = Protocol.decode(encoded);
@@ -104,8 +98,8 @@ public class ProtocolTest extends TestCase {
 
         UpdateMetadataRequest decodedRequest = (UpdateMetadataRequest) decoded.getAdminMessage();
 
-        Set<NodeEntry> expected = new HashSet<>(request.getNodes());
-        Set<NodeEntry> actual = new HashSet<>(decodedRequest.getNodes());
+        Set<InetSocketAddress> expected = new HashSet<>(request.getNodes());
+        Set<InetSocketAddress> actual = new HashSet<>(decodedRequest.getNodes());
 
         assertEquals(expected, actual);
     }

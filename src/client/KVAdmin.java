@@ -39,7 +39,8 @@ public class KVAdmin implements KVAdminInterface {
 
         UpdateMetadataRequest request = new UpdateMetadataRequest();
         for (NodeEntry nodeEntry : nodes) {
-            request.addNode(nodeEntry);
+            // TODO change API to inet addresses only after merging
+            request.addNode(nodeEntry.address);
         }
 
         return executeGenericReplySynchronously(request);

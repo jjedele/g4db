@@ -2,20 +2,16 @@ package common;
 
 import common.exceptions.ProtocolException;
 import common.hash.NodeEntry;
-import common.hash.Range;
 import common.messages.DefaultKVMessage;
 import common.messages.ExceptionMessage;
 import common.messages.KVMessage;
 import common.messages.Message;
 import common.messages.admin.*;
-
-import javax.xml.soap.Node;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Scanner;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Implementation of the wire protocol.
@@ -183,7 +179,7 @@ public final class Protocol {
         sb.append(UpdateMetadataRequest.TYPE_CODE);
         sb.append(UNIT_SEPARATOR);
 
-        sb.append(NodeEntry.multipleToSerializableString(req.getNodes()));
+        sb.append(encodeMultipleAddresses(req.getNodes()));
         sb.append(UNIT_SEPARATOR);
     }
 
@@ -226,7 +222,7 @@ public final class Protocol {
             UpdateMetadataRequest updateMetadataRequest = new UpdateMetadataRequest();
 
             String encodedNodeEntries = scanner.next();
-            for (NodeEntry entry : NodeEntry.mutlipleFromSerializedString(encodedNodeEntries)) {
+            for (InetSocketAddress entry : decodeMultipleAddresses(encodedNodeEntries)) {
                 updateMetadataRequest.addNode(entry);
             }
 
@@ -244,6 +240,47 @@ public final class Protocol {
         } else {
             throw new ProtocolException("Unknown admin message type: " + type);
         }
+    }
+
+    /**
+     * Encode a socket address into string format.
+     * @param address Address
+     * @return Encoded address
+     */
+    public static String encodeAddress(InetSocketAddress address) {
+        return String.format("%s:%d", address.getHostString(), address.getPort());
+    }
+
+    /**
+     * Decode a socket address from string format.
+     * @param encodedAddress Encoded address
+     * @return Address
+     */
+    public static InetSocketAddress decodeAddress(String encodedAddress) {
+        String[] parts = encodedAddress.split(":");
+        return new InetSocketAddress(parts[0], Integer.parseInt(parts[1]));
+    }
+
+    /**
+     * Encode multiple addresses into string format.
+     * @param addresses Collection of addresses
+     * @return Encoded string
+     */
+    public static String encodeMultipleAddresses(Collection<InetSocketAddress> addresses) {
+        return addresses.stream()
+                .map(Protocol::encodeAddress)
+                .collect(Collectors.joining(","));
+    }
+
+    /**
+     * Decode multiple address from string format.
+     * @param s Encoded addresses
+     * @return Decoded addresses
+     */
+    public static Collection<InetSocketAddress> decodeMultipleAddresses(String s) {
+        return Stream.of(s.split(","))
+                .map(Protocol::decodeAddress)
+                .collect(Collectors.toList());
     }
 
 }

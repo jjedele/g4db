@@ -1,7 +1,6 @@
 package common.messages.admin;
 
-import common.hash.NodeEntry;
-
+import java.net.InetSocketAddress;
 import java.util.*;
 
 /**
@@ -13,13 +12,13 @@ public class UpdateMetadataRequest extends AdminMessage {
     /** The type code for serialization. */
     public static final byte TYPE_CODE = 0x02;
 
-    private final Set<NodeEntry> nodes = new HashSet<>();
+    private final Set<InetSocketAddress> nodes = new HashSet<>();
 
     /**
      * Add a node to the message.
      * @param node The node
      */
-    public void addNode(NodeEntry node) {
+    public void addNode(InetSocketAddress node) {
         nodes.add(node);
     }
 
@@ -27,7 +26,7 @@ public class UpdateMetadataRequest extends AdminMessage {
      * Return all nodes contained in this message.
      * @return Collection of nodes
      */
-    public Collection<NodeEntry> getNodes() {
+    public Collection<InetSocketAddress> getNodes() {
         return nodes;
     }
 

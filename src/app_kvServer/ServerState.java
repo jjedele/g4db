@@ -1,5 +1,6 @@
 package app_kvServer;
 
+import common.Protocol;
 import common.hash.HashRing;
 import common.hash.NodeEntry;
 import common.hash.Range;
@@ -78,17 +79,18 @@ public class ServerState implements ServerStateMBean {
      * Set the current cluster nodes.
      * @param clusterNodes Set of current cluster nodes
      */
-    public synchronized void setClusterNodes(Collection<NodeEntry> clusterNodes) {
+    public synchronized void setClusterNodes(Collection<InetSocketAddress> clusterNodes) {
         this.hashRing = new HashRing();
 
-        for (NodeEntry nodeEntry : clusterNodes) {
-            hashRing.addNode(nodeEntry.address);
+        for (InetSocketAddress nodeEntry : clusterNodes) {
+            hashRing.addNode(nodeEntry);
         }
     }
 
+    //
     @Override
     public void setClusterNodesFromString(String s) {
-        setClusterNodes(NodeEntry.mutlipleFromSerializedString(s));
+        setClusterNodes(Protocol.decodeMultipleAddresses(s));
     }
 
 }
