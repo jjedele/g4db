@@ -4,6 +4,9 @@ import common.utils.RecordReader;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class DiskStorage implements PersistenceService {
 
@@ -52,6 +55,13 @@ public class DiskStorage implements PersistenceService {
         }
     }
 
+    @Override
+    public List<String> getKeys() throws PersistenceException {
+        return Stream.of(dataDirectory.listFiles())
+                .map(File::getName)
+                .collect(Collectors.toList());
+    }
+
     public boolean contains(String key) {
         File inputFile = new File(dataDirectory, key);
         return inputFile.exists();
@@ -63,18 +73,4 @@ public class DiskStorage implements PersistenceService {
         }
     }
 
-    public static void main(String[] args) throws PersistenceException, IOException {
-        File dataDirectory = new File("./data");
-        DiskStorage diskStorage = new DiskStorage(dataDirectory);
-        diskStorage.put("key", "test1");
-        diskStorage.put("anotherKey", "content-goes-here");
-        System.out.println(diskStorage.get("key"));
-        System.out.println(diskStorage.get("anotherKey"));
-        System.out.println(diskStorage.contains("invalid-key"));
-        System.out.println(diskStorage.contains("key"));
-        diskStorage.delete("anotherKey");
-        diskStorage.delete("invalid-key");
-        System.out.println(diskStorage.get("key"));
-        System.out.println(diskStorage.get("anotherKey"));
-    }
 }

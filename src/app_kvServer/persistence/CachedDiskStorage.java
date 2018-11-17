@@ -3,6 +3,7 @@ package app_kvServer.persistence;
 import app_kvServer.CacheReplacementStrategy;
 
 import java.io.File;
+import java.util.List;
 
 /**
  * Persists values directly to disk and maintains a configurable
@@ -80,4 +81,11 @@ public class CachedDiskStorage implements PersistenceService {
         return cache.contains(key) || diskStorage.contains(key);
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<String> getKeys() throws PersistenceException {
+        return diskStorage.getKeys();
+    }
 }
