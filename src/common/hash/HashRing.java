@@ -1,8 +1,14 @@
 package common.hash;
 
 import java.net.InetSocketAddress;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.TreeMap;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.SortedMap;
 
 /**
  * Consistent Hashing distributes a key range and nodes across a ring
@@ -10,13 +16,21 @@ import java.util.Collections;
  * as little as possible when nodes are added or deleted.
  */
 public class HashRing {
+    private final TreeMap<Integer, InetSocketAddress> circle = new TreeMap<Integer, InetSocketAddress>();
 
     /**
      * Add a node to the hash ring.
      * @param node Address of the node
      */
+
+    private String addressToString(InetSocketAddress node){
+        return String.format("%s:%d", node.getHostString(), node.getPort());
+
+    }
+
     public void addNode(InetSocketAddress node) {
-        // TODO
+        int nodeKey = getHash(addressToString(node));
+        circle.put(nodeKey, node);
     }
 
     /**
@@ -24,7 +38,8 @@ public class HashRing {
      * @param node Address of the node
      */
     public void removeNode(InetSocketAddress node) {
-        // TODO
+        int nodeKey = getHash(addressToString(node));
+        circle.remove(nodeKey);
     }
 
     /**
@@ -33,7 +48,7 @@ public class HashRing {
      */
     public Collection<InetSocketAddress> getNodes() {
         // TODO
-        return Collections.EMPTY_LIST;
+        return circle.values();
     }
 
     /**
@@ -43,7 +58,8 @@ public class HashRing {
      * @throws IllegalArgumentException if the node does not exist
      */
     public Range getAssignedRange(InetSocketAddress node) {
-        // TODO
+        // TODOgetAssignedRange
+        // do later
         return new Range(0, 1);
     }
 
@@ -52,9 +68,17 @@ public class HashRing {
      * @param val The value
      * @return Address of the responsible node
      */
-    public InetSocketAddress getResponsibleNode(String val) {
+
+        public InetSocketAddress getResponsibleNode(String val) {
         // TODO
-        return null;
+        int hashVal = getHash(val);
+        for (int key : circle.navigableKeySet()) {
+            if (hashVal <= key)
+                return circle.get(key);
+        }
+        //In case the predecessor node has a higher position than the actual server
+        return circle.firstEntry().getValue();
+        //test
     }
 
     /**
@@ -66,8 +90,11 @@ public class HashRing {
      * @return Successor node on the ring
      */
     public InetSocketAddress getSuccessor(InetSocketAddress node) {
-        // TODO
-        return null;
+        int nodeKey = getHash(addressToString(node));
+        if (circle.higherKey(nodeKey) == null)
+            return circle.firstEntry().getValue();
+        return circle.higherEntry(nodeKey).getValue();
+
     }
 
     /**
@@ -76,8 +103,15 @@ public class HashRing {
      * @return The hash
      */
     public int getHash(String val) {
-        // TODO
-        return 0;
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] d = md.digest(val.getBytes());
+            //Since it is easier to only look at the first 4 Byte
+            int hash = d[0] << 24 | (d[1] & 0xff) << 16 | (d[2] & 0xff) << 8 | (d[3] & 0xff);
+            return hash;
+        } catch (NoSuchAlgorithmException e) {
+            throw new AssertionError("Won't happen.");
+        }
     }
 
 }
