@@ -21,7 +21,7 @@ public class DiskStorage implements PersistenceService {
 
     @Override
     public boolean put(String key, String value) throws PersistenceException {
-        File outputFile = new File(dataDirectory, key);
+        File outputFile = escapedFile(key);
         boolean inserted = outputFile.isFile();
         try (FileOutputStream fileOutputStream = new FileOutputStream(outputFile)) {
             byte[] strToBytes = value.getBytes(StandardCharsets.UTF_8);
@@ -36,7 +36,7 @@ public class DiskStorage implements PersistenceService {
 
     @Override
     public String get(String key) throws PersistenceException {
-        File inputFile = new File(dataDirectory, key);
+        File inputFile = escapedFile(key);
         try (FileInputStream fileInputStream = new FileInputStream(inputFile)) {
             RecordReader reader = new RecordReader(fileInputStream, END_MARKER);
             byte[] read = reader.read();
@@ -48,7 +48,7 @@ public class DiskStorage implements PersistenceService {
 
     @Override
     public void delete(String key) throws PersistenceException {
-        File inputFile = new File(dataDirectory, key);
+        File inputFile = escapedFile(key);
         boolean deleted = inputFile.delete();
         if (!deleted) {
             throw new PersistenceException("Could not delete: " + key);
@@ -63,8 +63,12 @@ public class DiskStorage implements PersistenceService {
     }
 
     public boolean contains(String key) {
-        File inputFile = new File(dataDirectory, key);
+        File inputFile = escapedFile(key);
         return inputFile.exists();
+    }
+
+    private File escapedFile(String key) {
+        return new File(dataDirectory, key.replaceAll(File.separator, "_"));
     }
 
     private void ensureDataDirectoryExists() {
