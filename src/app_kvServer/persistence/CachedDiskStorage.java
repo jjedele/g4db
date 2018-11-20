@@ -29,16 +29,11 @@ public class CachedDiskStorage implements PersistenceService {
                 cache = new LFUCache<>(cacheSize);
                 break;
             case LRU:
-                // TODO change to LRU
-                cache = new LFUCache<>(cacheSize);
+                cache = new LRUCache<>(cacheSize);
                 break;
             case FIFO:
-                // TODO change to FIFO
-                cache = new LFUCache<>(cacheSize);
-                break;
             default:
-                // TODO decide on default, but its not really necessary
-                cache = new LFUCache<>(cacheSize);
+                cache = new FIFOCache<>(cacheSize);
         }
     }
 
