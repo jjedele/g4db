@@ -163,4 +163,33 @@ public class ProtocolTest extends TestCase {
         assertEquals(cause.getMessage(), decoded.getExceptionMessage().getMessage());
     }
 
+    public void testEncodeDecodeMaintenanceStatusRequests() throws ProtocolException {
+        long correlation = 1;
+
+        // request
+        GetMaintenanceStatusRequest request = new GetMaintenanceStatusRequest();
+        byte[] encoded = Protocol.encode(request, correlation);
+        CorrelatedMessage decoded = Protocol.decode(encoded);
+
+        assertEquals(correlation, decoded.getCorrelationNumber());
+        assertTrue(decoded.hasAdminMessage());
+        assertEquals(GetMaintenanceStatusRequest.class, decoded.getAdminMessage().getClass());
+
+
+        correlation++;
+
+        // response
+        MaintenanceStatusResponse response = new MaintenanceStatusResponse(true, "task", 42);
+        encoded = Protocol.encode(response, correlation);
+        decoded = Protocol.decode(encoded);
+
+        assertEquals(correlation, decoded.getCorrelationNumber());
+        assertTrue(decoded.hasAdminMessage());
+
+        MaintenanceStatusResponse decodedResponse = (MaintenanceStatusResponse) decoded.getAdminMessage();
+        assertEquals(response.isActive(), decodedResponse.isActive());
+        assertEquals(response.getTask(), decodedResponse.getTask());
+        assertEquals(response.getProgress(), decodedResponse.getProgress());
+    }
+
 }

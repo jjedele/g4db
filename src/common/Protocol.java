@@ -156,6 +156,10 @@ public final class Protocol {
             encodeSimpleAdminMessage(sb, DisableWriteLockRequest.TYPE_CODE);
         } else if (msg instanceof MoveDataRequest) {
             encodeMoveDataRequest(sb, (MoveDataRequest) msg);
+        } else if (msg instanceof GetMaintenanceStatusRequest) {
+            encodeSimpleAdminMessage(sb, GetMaintenanceStatusRequest.TYPE_CODE);
+        } else if (msg instanceof MaintenanceStatusResponse) {
+            encodeMaintenanceStatusResponse(sb, (MaintenanceStatusResponse) msg);
         } else {
             throw new AssertionError("Unsupported AdminMessage: " + msg.getClass());
         }
@@ -196,6 +200,20 @@ public final class Protocol {
         sb.append(UNIT_SEPARATOR);
 
         sb.append(req.getRange().getEnd());
+        sb.append(UNIT_SEPARATOR);
+    }
+
+    private static void encodeMaintenanceStatusResponse(StringBuilder sb, MaintenanceStatusResponse resp) {
+        sb.append(MaintenanceStatusResponse.TYPE_CODE);
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(Boolean.toString(resp.isActive()));
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(Integer.toString(resp.getProgress()));
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(resp.getTask());
         sb.append(UNIT_SEPARATOR);
     }
 
@@ -259,6 +277,14 @@ public final class Protocol {
             int rangeEnd = Integer.parseInt(scanner.next());
 
             return new MoveDataRequest(address, new Range(rangeStart, rangeEnd));
+        } else if (type == GetMaintenanceStatusRequest.TYPE_CODE) {
+            return new GetMaintenanceStatusRequest();
+        } else if (type == MaintenanceStatusResponse.TYPE_CODE) {
+            boolean active = Boolean.parseBoolean(scanner.next());
+            int progress = Integer.parseInt(scanner.next());
+            String task = scanner.next();
+
+            return new MaintenanceStatusResponse(active, task, progress);
         } else {
             throw new ProtocolException("Unknown admin message type: " + type);
         }

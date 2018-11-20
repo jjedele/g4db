@@ -22,6 +22,17 @@ public class AdminTasks {
     }
 
     /**
+     * Return the name of the currently running task.
+     * @return Name or null if no active task
+     */
+    public static synchronized String getTaskType() {
+        if (hasActiveTask()) {
+            return currentTask.getClass().getName();
+        }
+        return null;
+    }
+
+    /**
      * Return the progress of the current maintenance tasks.
      * @return The progress
      */

@@ -130,6 +130,21 @@ public class KVAdmin implements KVAdminInterface {
         return communicationModule.isRunning();
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public MaintenanceStatusResponse getMaintenanceStatus() throws ClientException {
+        try {
+            return (MaintenanceStatusResponse) communicationModule
+                    .send(new GetMaintenanceStatusRequest())
+                    .thenApply(CorrelatedMessage::getAdminMessage)
+                    .get(timeoutSeconds, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new ClientException("Could not execute request.", e);
+        }
+    }
+
     private void ensureConnected() throws ClientException {
         if (!communicationModule.isRunning()) {
             throw new DisconnectedException();

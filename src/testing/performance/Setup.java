@@ -6,6 +6,7 @@ import client.exceptions.ClientException;
 import common.hash.HashRing;
 import common.hash.NodeEntry;
 import common.hash.Range;
+import common.messages.admin.MaintenanceStatusResponse;
 
 import java.net.InetSocketAddress;
 import java.util.Collection;
@@ -14,7 +15,7 @@ import java.util.stream.Stream;
 
 public class Setup {
 
-    public static void main(String[] args) throws ClientException {
+    public static void main(String[] args) throws ClientException, InterruptedException {
         InetSocketAddress node1 = new InetSocketAddress("localhost", 50000);
         KVAdminInterface s1admin = new KVAdmin(node1);
         s1admin.connect();
@@ -37,7 +38,7 @@ public class Setup {
             System.out.println("after: " + node + " " + hr2.getAssignedRange(node));
         }
 
-        System.out.println("Transfer: " + hr2.getAssignedRange(node2) + " to " + hr2.getSuccessor(node2));
+        System.out.println("Transfer: " + hr2.getAssignedRange(node2) + " to " + node2);
 
         Collection<NodeEntry> nodes = Stream.of(node1, node2)
                 .map(a -> new NodeEntry("sn", a, new Range()))
@@ -51,6 +52,13 @@ public class Setup {
         s1admin.enableWriteLock();
 
         s1admin.moveData(node2, hr2.getAssignedRange(node2));
+
+        MaintenanceStatusResponse statusResponse = s1admin.getMaintenanceStatus();
+        while (statusResponse.isActive()) {
+            System.out.println(statusResponse.getTask() + " " + statusResponse.getProgress());
+            Thread.sleep(10000);
+            statusResponse = s1admin.getMaintenanceStatus();
+        }
 
         s1admin.disableWriteLock();
 

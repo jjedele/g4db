@@ -305,6 +305,10 @@ public class ClientConnection implements Runnable {
                     persistenceService, moveDataRequest.getRange(), moveDataRequest.getDestination());
             AdminTasks.addTask(moveDataTask);
             return GenericResponse.success();
+        } else if (msg instanceof GetMaintenanceStatusRequest) {
+            return new MaintenanceStatusResponse(AdminTasks.hasActiveTask(),
+                    AdminTasks.getTaskType(),
+                    (int) (100 * AdminTasks.getProgress()));
         } else {
             throw new AssertionError("Admin message handler not implemented: " + msg.getClass());
         }
