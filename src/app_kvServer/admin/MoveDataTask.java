@@ -8,8 +8,6 @@ import common.hash.HashRing;
 import common.hash.Range;
 import common.messages.DefaultKVMessage;
 import common.messages.KVMessage;
-import common.messages.admin.MoveDataRequest;
-import jdk.net.SocketFlow;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -74,19 +72,16 @@ public class MoveDataTask implements AdminTask {
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .map(communicationModule::send)
-                    .map(future -> {
-                        counter.incrementAndGet();
-                        System.out.println(getProgress());
-                        return future
-                                .thenApply(CorrelatedMessage::getKVMessage)
-                                .thenApply(reply -> {
-                                    if (KVMessage.StatusType.PUT_SUCCESS != reply.getStatus()
-                                            && KVMessage.StatusType.PUT_UPDATE != reply.getStatus()) {
-                                        System.out.println(reply.getStatus());
-                                    }
-                                    return reply;
-                                });
-                    })
+                    .map(future -> future
+                            .thenApply(CorrelatedMessage::getKVMessage)
+                            .thenApply(reply -> {
+                                counter.incrementAndGet();
+                                if (KVMessage.StatusType.PUT_SUCCESS != reply.getStatus()
+                                        && KVMessage.StatusType.PUT_UPDATE != reply.getStatus()) {
+                                    LOG.warn("Could not transfer an item: {}", reply);
+                                }
+                                return reply;
+                            }))
                     .collect(Collectors.toList());
 
             CompletableFuture<Void> overallTransfer = CompletableFuture.allOf(transfers.toArray(new CompletableFuture[] {}));

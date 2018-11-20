@@ -53,8 +53,8 @@ public class CommunicationModule {
         this.terminated = new AtomicBoolean(false);
         this.restarting = new AtomicBoolean(false);
         this.messageCounter = new AtomicLong(0);
-        this.outstandingRequests = new LinkedBlockingDeque<>(bufferCapacity);
-        this.correlatedRequests = new ConcurrentHashMap<>();
+        this.outstandingRequests = new LinkedBlockingDeque<>();
+        this.correlatedRequests = new ConcurrentHashMap<>(100);
         this.running = false;
         // make log4j inherit thread contexts from parent thread because we use a lot of workers
         System.setProperty("log4j2.isThreadContextMapInheritable", "true");
@@ -135,12 +135,11 @@ public class CommunicationModule {
         public void run() {
             try {
                 while (!terminated.get() && !restarting.get()) {
-                    if (outstandingRequests.isEmpty()) {
+                    AcceptedMessage msg = outstandingRequests.pollFirst(100, TimeUnit.MILLISECONDS);
+                    if (msg == null) {
                         // no message, check socket health proactively
                         outputStream.write(RECORD_SEPARATOR);
-                        Thread.sleep(100);
                     } else {
-                        AcceptedMessage msg = outstandingRequests.takeFirst();
                         ThreadContext.put("correlation", Long.toUnsignedString(msg.correlationId));
 
                         byte[] payload = Protocol.encode(msg.message, msg.correlationId);
