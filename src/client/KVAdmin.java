@@ -101,7 +101,9 @@ public class KVAdmin implements KVAdminInterface {
      */
     @Override
     public GenericResponse moveData(InetSocketAddress destination, Range keyRange) throws ClientException {
-        throw new AssertionError("Not implemented yet.");
+        MoveDataRequest moveDataRequest = new MoveDataRequest(destination, keyRange);
+
+        return executeGenericReplySynchronously(moveDataRequest);
     }
 
     /**

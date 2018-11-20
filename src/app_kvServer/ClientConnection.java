@@ -1,5 +1,7 @@
 package app_kvServer;
 
+import app_kvServer.admin.AdminTasks;
+import app_kvServer.admin.MoveDataTask;
 import app_kvServer.persistence.PersistenceException;
 import app_kvServer.persistence.PersistenceService;
 import common.CorrelatedMessage;
@@ -40,7 +42,6 @@ public class ClientConnection implements Runnable {
     private final PersistenceService persistenceService;
     private final SessionRegistry sessionRegistry;
     private final ServerState serverState;
-    private final Function<String, Integer> hashFunction;
 
     private final Socket socket;
     private InputStream inputStream;
@@ -62,15 +63,6 @@ public class ClientConnection implements Runnable {
         this.persistenceService = persistenceService;
         this.sessionRegistry = sessionRegistry;
         this.serverState = serverState;
-
-        // we want a deterministic way to produce hashes when in testing mode
-        if ("true".equals(System.getProperty("hash_test_mode"))) {
-            LOG.info("Using deterministic key hashing for testing.");
-            hashFunction = (String key) -> (int) key.getBytes()[0];
-        } else {
-            // TODO replace with the real thing
-            hashFunction = (String key) -> (int) key.getBytes()[0];
-        }
     }
 
     /**
@@ -305,6 +297,13 @@ public class ClientConnection implements Runnable {
             UpdateMetadataRequest updateMetadataRequest = (UpdateMetadataRequest) msg;
             serverState.setClusterNodes(updateMetadataRequest.getNodes());
             LOG.info("Admin: Updated meta data.");
+            return GenericResponse.success();
+        } else if (msg instanceof MoveDataRequest) {
+            MoveDataRequest moveDataRequest = (MoveDataRequest) msg;
+            LOG.info("Admin: Starting move data task: {}", moveDataRequest);
+            MoveDataTask moveDataTask = new MoveDataTask(
+                    persistenceService, moveDataRequest.getRange(), moveDataRequest.getDestination());
+            AdminTasks.addTask(moveDataTask);
             return GenericResponse.success();
         } else {
             throw new AssertionError("Admin message handler not implemented: " + msg.getClass());
