@@ -4,6 +4,7 @@ import client.exceptions.ClientException;
 import common.hash.NodeEntry;
 import common.hash.Range;
 import common.messages.admin.GenericResponse;
+import common.messages.admin.MaintenanceStatusResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -79,5 +80,11 @@ public class DummyAdminClient implements KVAdminInterface {
     @Override
     public boolean isConnected() {
         return false;
+    }
+
+    @Override
+    public MaintenanceStatusResponse getMaintenanceStatus() throws ClientException {
+        LOG.info("Server {}: Disconnect", serverAddress);
+        return new MaintenanceStatusResponse(true, "dummytask", 42);
     }
 }

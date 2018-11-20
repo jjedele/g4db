@@ -3,12 +3,7 @@ package common.hash;
 import java.net.InetSocketAddress;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.TreeMap;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.SortedMap;
+import java.util.*;
 
 /**
  * Consistent Hashing distributes a key range and nodes across a ring
@@ -58,9 +53,11 @@ public class HashRing {
      * @throws IllegalArgumentException if the node does not exist
      */
     public Range getAssignedRange(InetSocketAddress node) {
-        // TODOgetAssignedRange
-        // do later
-        return new Range(0, 1);
+        int upperBound = getHash(addressToString(node));
+        int lowerBound = Optional
+                .ofNullable(circle.lowerKey(upperBound))
+                .orElse(circle.lastKey());
+        return new Range(lowerBound, upperBound);
     }
 
     /**
@@ -97,12 +94,17 @@ public class HashRing {
 
     }
 
+    // dynamic wrapper to we can override it
+    protected int getHash(String val) {
+        return hash(val);
+    }
+
     /**
      * Return the hash for given value.
      * @param val The value
      * @return The hash
      */
-    public int getHash(String val) {
+    public static int hash(String val) {
         try {
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] d = md.digest(val.getBytes());

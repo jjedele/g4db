@@ -101,7 +101,9 @@ public class KVAdmin implements KVAdminInterface {
      */
     @Override
     public GenericResponse moveData(InetSocketAddress destination, Range keyRange) throws ClientException {
-        throw new AssertionError("Not implemented yet.");
+        MoveDataRequest moveDataRequest = new MoveDataRequest(destination, keyRange);
+
+        return executeGenericReplySynchronously(moveDataRequest);
     }
 
     /**
@@ -126,6 +128,21 @@ public class KVAdmin implements KVAdminInterface {
     @Override
     public boolean isConnected() {
         return communicationModule.isRunning();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public MaintenanceStatusResponse getMaintenanceStatus() throws ClientException {
+        try {
+            return (MaintenanceStatusResponse) communicationModule
+                    .send(new GetMaintenanceStatusRequest())
+                    .thenApply(CorrelatedMessage::getAdminMessage)
+                    .get(timeoutSeconds, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new ClientException("Could not execute request.", e);
+        }
     }
 
     private void ensureConnected() throws ClientException {

@@ -2,8 +2,9 @@ package app_kvServer;
 
 import common.Protocol;
 import common.hash.HashRing;
-import common.hash.NodeEntry;
-import common.hash.Range;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.net.InetSocketAddress;
 import java.util.*;
 
@@ -11,6 +12,8 @@ import java.util.*;
  * Global server state.
  */
 public class ServerState implements ServerStateMBean {
+
+    private final static Logger LOG = LogManager.getLogger(ServerState.class);
 
     private final InetSocketAddress myself;
     private volatile boolean stopped;
@@ -25,6 +28,8 @@ public class ServerState implements ServerStateMBean {
         this.myself = myself;
         this.stopped = true;
         this.writeLockActive = false;
+        this.hashRing = new HashRing();
+        hashRing.addNode(myself);
     }
 
     /**
@@ -84,6 +89,10 @@ public class ServerState implements ServerStateMBean {
 
         for (InetSocketAddress nodeEntry : clusterNodes) {
             hashRing.addNode(nodeEntry);
+        }
+
+        for (InetSocketAddress node : hashRing.getNodes()) {
+            LOG.info("Node responsibility {}: {}", node, hashRing.getAssignedRange(node));
         }
     }
 

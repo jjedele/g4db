@@ -129,6 +129,27 @@ public class ProtocolTest extends TestCase {
         }
     }
 
+    public void testEncodeDecodeMoveDataRequest() throws ProtocolException {
+        InetSocketAddress destination = new InetSocketAddress("somehost.de", 12345);
+        Range range = new Range(0, 500);
+
+        MoveDataRequest moveDataRequest = new MoveDataRequest(destination, range);
+
+        long correlation = 0;
+        byte[] encoded = Protocol.encode(moveDataRequest, correlation);
+
+        CorrelatedMessage decoded = Protocol.decode(encoded);
+
+        assertEquals(correlation, decoded.getCorrelationNumber());
+        assertTrue(decoded.hasAdminMessage());
+        assertEquals(MoveDataRequest.class, decoded.getAdminMessage().getClass());
+
+        MoveDataRequest decodedRequest = (MoveDataRequest) decoded.getAdminMessage();
+
+        assertEquals(destination, decodedRequest.getDestination());
+        assertEquals(range, decodedRequest.getRange());
+    }
+
     public void testEncodeDecodeExceptionMessage() throws ProtocolException {
         Exception cause = new RuntimeException("I fooed the bar.");
         ExceptionMessage exceptionMessage = new ExceptionMessage(cause);
@@ -140,6 +161,35 @@ public class ProtocolTest extends TestCase {
         assertTrue(decoded.hasExceptionMessage());
         assertEquals(cause.getClass().getName(), decoded.getExceptionMessage().getExceptionClass());
         assertEquals(cause.getMessage(), decoded.getExceptionMessage().getMessage());
+    }
+
+    public void testEncodeDecodeMaintenanceStatusRequests() throws ProtocolException {
+        long correlation = 1;
+
+        // request
+        GetMaintenanceStatusRequest request = new GetMaintenanceStatusRequest();
+        byte[] encoded = Protocol.encode(request, correlation);
+        CorrelatedMessage decoded = Protocol.decode(encoded);
+
+        assertEquals(correlation, decoded.getCorrelationNumber());
+        assertTrue(decoded.hasAdminMessage());
+        assertEquals(GetMaintenanceStatusRequest.class, decoded.getAdminMessage().getClass());
+
+
+        correlation++;
+
+        // response
+        MaintenanceStatusResponse response = new MaintenanceStatusResponse(true, "task", 42);
+        encoded = Protocol.encode(response, correlation);
+        decoded = Protocol.decode(encoded);
+
+        assertEquals(correlation, decoded.getCorrelationNumber());
+        assertTrue(decoded.hasAdminMessage());
+
+        MaintenanceStatusResponse decodedResponse = (MaintenanceStatusResponse) decoded.getAdminMessage();
+        assertEquals(response.isActive(), decodedResponse.isActive());
+        assertEquals(response.getTask(), decodedResponse.getTask());
+        assertEquals(response.getProgress(), decodedResponse.getProgress());
     }
 
 }

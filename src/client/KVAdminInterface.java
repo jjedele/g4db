@@ -4,6 +4,7 @@ import client.exceptions.ClientException;
 import common.hash.NodeEntry;
 import common.hash.Range;
 import common.messages.admin.GenericResponse;
+import common.messages.admin.MaintenanceStatusResponse;
 
 import java.net.InetSocketAddress;
 import java.util.Collection;
@@ -70,15 +71,19 @@ public interface KVAdminInterface extends KVInterface {
      * Requests the server to move a specified range of keys to the given
      * destination server.
      *
-     * TODO: In the first instance we will make this block until the data
-     * TODO: transfer is complete, which is ugly. In a second instance we
-     * TODO: might want to make this asychronous.
-     *
      * @param destination
      * @param keyRange
      * @return
      * @throws ClientException
      */
     GenericResponse moveData(InetSocketAddress destination, Range keyRange) throws ClientException;
+
+    /**
+     * Requests the server for the status of possible running maintenance tasks.
+     *
+     * @return Status
+     * @throws ClientException if something goes wrong
+     */
+    MaintenanceStatusResponse getMaintenanceStatus() throws ClientException;
 
 }

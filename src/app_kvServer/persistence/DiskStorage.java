@@ -4,6 +4,9 @@ import common.utils.RecordReader;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class DiskStorage implements PersistenceService {
 
@@ -18,7 +21,7 @@ public class DiskStorage implements PersistenceService {
 
     @Override
     public boolean put(String key, String value) throws PersistenceException {
-        File outputFile = new File(dataDirectory, key);
+        File outputFile = escapedFile(key);
         boolean inserted = outputFile.isFile();
         try (FileOutputStream fileOutputStream = new FileOutputStream(outputFile)) {
             byte[] strToBytes = value.getBytes(StandardCharsets.UTF_8);
@@ -33,7 +36,7 @@ public class DiskStorage implements PersistenceService {
 
     @Override
     public String get(String key) throws PersistenceException {
-        File inputFile = new File(dataDirectory, key);
+        File inputFile = escapedFile(key);
         try (FileInputStream fileInputStream = new FileInputStream(inputFile)) {
             RecordReader reader = new RecordReader(fileInputStream, END_MARKER);
             byte[] read = reader.read();
@@ -45,16 +48,27 @@ public class DiskStorage implements PersistenceService {
 
     @Override
     public void delete(String key) throws PersistenceException {
-        File inputFile = new File(dataDirectory, key);
+        File inputFile = escapedFile(key);
         boolean deleted = inputFile.delete();
         if (!deleted) {
             throw new PersistenceException("Could not delete: " + key);
         }
     }
 
+    @Override
+    public List<String> getKeys() throws PersistenceException {
+        return Stream.of(dataDirectory.listFiles())
+                .map(File::getName)
+                .collect(Collectors.toList());
+    }
+
     public boolean contains(String key) {
-        File inputFile = new File(dataDirectory, key);
+        File inputFile = escapedFile(key);
         return inputFile.exists();
+    }
+
+    private File escapedFile(String key) {
+        return new File(dataDirectory, key.replaceAll(File.separator, "_"));
     }
 
     private void ensureDataDirectoryExists() {
@@ -63,18 +77,4 @@ public class DiskStorage implements PersistenceService {
         }
     }
 
-    public static void main(String[] args) throws PersistenceException, IOException {
-        File dataDirectory = new File("./data");
-        DiskStorage diskStorage = new DiskStorage(dataDirectory);
-        diskStorage.put("key", "test1");
-        diskStorage.put("anotherKey", "content-goes-here");
-        System.out.println(diskStorage.get("key"));
-        System.out.println(diskStorage.get("anotherKey"));
-        System.out.println(diskStorage.contains("invalid-key"));
-        System.out.println(diskStorage.contains("key"));
-        diskStorage.delete("anotherKey");
-        diskStorage.delete("invalid-key");
-        System.out.println(diskStorage.get("key"));
-        System.out.println(diskStorage.get("anotherKey"));
-    }
 }

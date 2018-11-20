@@ -3,8 +3,6 @@ package client;
 import common.CorrelatedMessage;
 import common.Protocol;
 import common.exceptions.ProtocolException;
-import common.messages.DefaultKVMessage;
-import common.messages.KVMessage;
 import common.messages.Message;
 import common.utils.RecordReader;
 import org.apache.logging.log4j.LogManager;
@@ -74,7 +72,13 @@ public class CommunicationModule {
         CompletableFuture<CorrelatedMessage> future = new CompletableFuture<>();
         AcceptedMessage acceptedMessage = new AcceptedMessage(correlationId, msg, future);
         correlatedRequests.put(correlationId, acceptedMessage);
-        outstandingRequests.addLast(acceptedMessage);
+        try {
+            outstandingRequests.putLast(acceptedMessage);
+        } catch (InterruptedException e) {
+            LOG.error("Error adding request to queue.", e);
+            correlatedRequests.remove(correlationId);
+            future.completeExceptionally(e);
+        }
         return future;
     }
 
@@ -318,7 +322,11 @@ public class CommunicationModule {
             // sort by correlation ID descending
             Collections.sort(acceptedMessages, (o1, o2) -> Long.signum(o2.correlationId - o1.correlationId));
             for (AcceptedMessage acceptedMessage : acceptedMessages) {
-                outstandingRequests.addFirst(acceptedMessage);
+                try {
+                    outstandingRequests.putFirst(acceptedMessage);
+                } catch (InterruptedException e) {
+                    LOG.error("Could not requeue message.", e);
+                }
             }
         } else {
             // cancel all outstanding futures
