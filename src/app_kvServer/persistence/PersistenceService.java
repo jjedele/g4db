@@ -1,5 +1,7 @@
 package app_kvServer.persistence;
 
+import java.util.List;
+
 /**
  * Base interface for the persistence service.
  */
@@ -36,5 +38,12 @@ public interface PersistenceService {
      * @throws PersistenceException if something goes wrong
      */
     boolean contains(String key) throws PersistenceException;
+
+    /**
+     * Get a list of all persisted keys.
+     * @return List of persisted keys
+     * @throws PersistenceException if something goes wrong
+     */
+    List<String> getKeys() throws PersistenceException;
 
 }
