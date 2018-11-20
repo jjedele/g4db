@@ -9,7 +9,7 @@ public class HashRingTest extends TestCase {
 
     static class TestHashRing extends HashRing {
         @Override
-        public int getHash(String val) {
+        protected int getHash(String val) {
             if (val.contains(":")) {
                 // node -> hostname:port
                 String[] parts = val.split(":");
@@ -37,7 +37,7 @@ public class HashRingTest extends TestCase {
     public void testMD5Hash() {
         HashRing hashRing = new HashRing();
 
-        int hash = hashRing.getHash("hello world");
+        int hash = hashRing.hash("hello world");
 
         System.out.println(hash);
 
