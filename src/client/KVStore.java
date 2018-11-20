@@ -10,10 +10,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import java.net.InetSocketAddress;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -33,7 +30,7 @@ public class KVStore implements KVCommInterface {
      */
     public KVStore(String address, int port) {
         this.hashRing = new HashRing();
-        this.communicationModules = new HashMap<>();
+        this.communicationModules = new ConcurrentHashMap<>();
         // TODO this immediately starts the module right now, see if this is a problem
         addNodeConnection(new InetSocketAddress(address, port));
         this.running = true;
@@ -110,7 +107,7 @@ public class KVStore implements KVCommInterface {
         return running;
     }
 
-    private synchronized KVMessage sendAndGetReply(KVMessage msg) throws ClientException {
+    private KVMessage sendAndGetReply(KVMessage msg) throws ClientException {
         try {
             return communicationModuleForKey(msg.getKey())
                     .send(msg)
@@ -151,21 +148,19 @@ public class KVStore implements KVCommInterface {
         return communicationModule;
     }
 
-    private void updateConnections(Collection<InetSocketAddress> newNodes) {
+    private synchronized void updateConnections(Collection<InetSocketAddress> newNodes) {
         Set<InetSocketAddress> nodesToAdd = new HashSet<>(newNodes);
         nodesToAdd.removeAll(hashRing.getNodes());
 
         Set<InetSocketAddress> nodesToRemove = new HashSet<>(hashRing.getNodes());
         nodesToRemove.removeAll(newNodes);
 
-        synchronized (communicationModules) {
-            for (InetSocketAddress node : nodesToAdd) {
-                addNodeConnection(node);
-            }
+        for (InetSocketAddress node : nodesToAdd) {
+            addNodeConnection(node);
+        }
 
-            for (InetSocketAddress node : nodesToRemove) {
-                removeNodeConnection(node);
-            }
+        for (InetSocketAddress node : nodesToRemove) {
+            removeNodeConnection(node);
         }
     }
 
