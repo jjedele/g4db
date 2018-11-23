@@ -56,7 +56,7 @@ public class DefaultKVAdmin implements KVAdmin {
     private final Map<InetSocketAddress, KVAdminInterface> adminClients;
 
     public DefaultKVAdmin(Collection<ServerInfo> servers) {
-        // TODO: maintain list of possible server nodes
+        // TODO: maintain list of possible server nodes - DONE
         this.servers = new ArrayList<>(servers);
         this.adminClients = new HashMap<>();
     }
@@ -231,6 +231,8 @@ public class DefaultKVAdmin implements KVAdmin {
         // TODO: after this is done, send a metadata update to ALL servers
         // TODO: shut down the node to be removed
 
+        // TODO display the number of running servers
+
         Set<InetSocketAddress> allNodes = servers.stream()
                 .map(server -> server.address)
                 .collect(Collectors.toSet());
@@ -287,7 +289,7 @@ public class DefaultKVAdmin implements KVAdmin {
         // TODO catch exceptions here and check the error code for success
     }
 
-    public static void main(String[] args) throws JSchException {
+    public static void main(String[] args)  {
         DefaultKVAdmin kvadmin = new DefaultKVAdmin(Arrays.asList(
                 new ServerInfo("node1", "xhens", new InetSocketAddress("localhost", 50000)),
                 new ServerInfo("node2", "xhens", new InetSocketAddress("localhost", 50001)),
