@@ -17,4 +17,10 @@ public interface SessionRegistry {
      */
     void unregisterSession(ClientConnection session);
 
+    /**
+     * Request a global server shutdown.
+     * TODO: this does not really belong in here - factor out
+     */
+    void requestShutDown();
+
 }

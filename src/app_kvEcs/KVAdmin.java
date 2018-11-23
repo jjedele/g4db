@@ -1,6 +1,7 @@
 package app_kvEcs;
 
 import app_kvServer.CacheReplacementStrategy;
+import com.jcraft.jsch.JSchException;
 
 /**
  * Administration interface for a cluster of KVServers.
@@ -26,7 +27,7 @@ public interface KVAdmin {
      *
      * This starts all server instances that participate in the cluster.
      */
-    void start();
+    void start() throws JSchException;
 
     /**
      * Stops the storage service.

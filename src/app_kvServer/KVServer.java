@@ -5,9 +5,14 @@ import app_kvServer.persistence.CachedDiskStorage;
 import app_kvServer.persistence.PersistenceService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.ThreadContext;
 
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 import java.io.File;
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashSet;
@@ -23,6 +28,7 @@ public class KVServer implements Runnable, SessionRegistry {
     private final File dataDirectory;
     private final CacheReplacementStrategy cacheStrategy;
     private final Set<ClientConnection> activeSessions;
+    private final ServerState serverState;
 
     private ServerSocket serverSocket;
     private AtomicBoolean running;
@@ -38,6 +44,9 @@ public class KVServer implements Runnable, SessionRegistry {
         int port = 50000;
         int cacheSize = 10000;
         CacheReplacementStrategy strategy = CacheReplacementStrategy.FIFO;
+
+        // make log4j inherit thread contexts from parent thread because we use a lot of workers
+        System.setProperty("log4j2.isThreadContextMapInheritable", "true");
 
         if (args.length >= 1) {
             try {
@@ -64,7 +73,7 @@ public class KVServer implements Runnable, SessionRegistry {
             }
         }
 
-        File dataDirectory = new File("./data");
+        File dataDirectory = new File("./data_" + port);
         KVServer server = new KVServer(port, dataDirectory, cacheSize, strategy);
         // not doing this in a thread by choice
         server.run();
@@ -88,6 +97,8 @@ public class KVServer implements Runnable, SessionRegistry {
         this.activeSessions = new HashSet<>();
         this.dataDirectory = dataDirectory;
         this.running = new AtomicBoolean(false);
+        String hostname = System.getenv().getOrDefault("KV_HOSTNAME", "localhost");
+        this.serverState = new ServerState(new InetSocketAddress(hostname, port));
     }
 
     /**
@@ -95,6 +106,18 @@ public class KVServer implements Runnable, SessionRegistry {
      */
     @Override
     public void run() {
+        ThreadContext.put("serverPort", Integer.toString(port));
+
+        // try to register server state as MBean
+        try {
+            MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
+            ObjectName name = new ObjectName("server:name=State");
+            mBeanServer.registerMBean(serverState, name);
+            LOG.info("Registered server state MBean: " + name);
+        } catch (Exception e) {
+            LOG.error("Could not register server state MBean.", e);
+        }
+
         // TODO handle errors more gracefully
         try {
             PersistenceService persistenceService =
@@ -111,7 +134,8 @@ public class KVServer implements Runnable, SessionRegistry {
                 ClientConnection clientConnection = new ClientConnection(
                         clientSocket,
                         persistenceService,
-                        this);
+                        this,
+                        serverState);
 
                 new Thread(clientConnection).start();
             }
@@ -127,6 +151,12 @@ public class KVServer implements Runnable, SessionRegistry {
      */
     public void stop() {
         this.running.set(false);
+
+        for (ClientConnection session : activeSessions) {
+            session.terminate();
+        }
+
+        cleanSocketShutdown();
     }
 
     /**
@@ -143,6 +173,14 @@ public class KVServer implements Runnable, SessionRegistry {
     @Override
     public void unregisterSession(ClientConnection session) {
         activeSessions.remove(session);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void requestShutDown() {
+        stop();
     }
 
     private void cleanSocketShutdown() {

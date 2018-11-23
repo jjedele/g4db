@@ -9,7 +9,7 @@ public class HashRingTest extends TestCase {
 
     static class TestHashRing extends HashRing {
         @Override
-        public int getHash(String val) {
+        protected int getHash(String val) {
             if (val.contains(":")) {
                 // node -> hostname:port
                 String[] parts = val.split(":");
@@ -32,6 +32,32 @@ public class HashRingTest extends TestCase {
         InetSocketAddress responsibleNode = hashRing.getResponsibleNode("3");
 
         assertEquals(node2, responsibleNode);
+    }
+
+    public void testMD5Hash() {
+        HashRing hashRing = new HashRing();
+
+        int hash = hashRing.hash("hello world");
+
+        System.out.println(hash);
+
+        // does not throw exception
+    }
+
+    public void getResponsibleNode() {
+        HashRing hashRing = new TestHashRing();
+
+        InetSocketAddress node1 = new InetSocketAddress("localhost", 1);
+        InetSocketAddress node2 = new InetSocketAddress("localhost", 7);
+        hashRing.addNode(node1);
+        hashRing.addNode(node2);
+
+        InetSocketAddress  ResponsibleNode = hashRing.getResponsibleNode("5");
+        System.out.println(ResponsibleNode);
+
+    }
+    public void getSuccessor(){
+
     }
 
 }

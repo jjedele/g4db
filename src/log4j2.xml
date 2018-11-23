@@ -23,6 +23,10 @@
             <AppenderRef ref="Console" />
             <appender-ref ref="kvServer" />
         </Logger>
+        <Logger name="app_kvEcs" level="all" additivity="false">
+            <AppenderRef ref="Console" />
+            <appender-ref ref="kvServer" />
+        </Logger>
         <Logger name="tests" level="all" additivity="false">
             <AppenderRef ref="Console" />
             <appender-ref ref="tests" />
