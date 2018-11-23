@@ -7,6 +7,7 @@ import java.util.Scanner;
 import app_kvServer.CacheReplacementStrategy;
 import client.KVAdminInterface;
 import client.exceptions.ClientException;
+import com.jcraft.jsch.JSchException;
 
 import java.net.InetSocketAddress;
 
@@ -83,7 +84,11 @@ public class ECSClient implements KVAdmin {
             }
 
             if ("start".equals(parts[0])) {
-                admin.start();
+                try {
+                    admin.start();
+                } catch (JSchException e) {
+                    e.printStackTrace();
+                }
 
             }
 
