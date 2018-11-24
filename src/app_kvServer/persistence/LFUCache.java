@@ -79,7 +79,7 @@ public class LFUCache<K,V>  implements Cache<K, V> {
      * {@inheritDoc}
      */
     @Override
-    public V get(K key) {
+    public synchronized V get(K key) {
         ValueNode valueNode = byKey.get(key);
 
         if (valueNode == null) {
@@ -94,7 +94,7 @@ public class LFUCache<K,V>  implements Cache<K, V> {
      * {@inheritDoc}
      */
     @Override
-    public void put(K key, V value) {
+    public synchronized void put(K key, V value) {
         ValueNode valueNode = byKey.get(key);
 
         if (valueNode != null) {
@@ -123,7 +123,7 @@ public class LFUCache<K,V>  implements Cache<K, V> {
      * {@inheritDoc}
      */
     @Override
-    public void delete(K key){
+    public synchronized void delete(K key){
         ValueNode valueNode = byKey.get(key);
 
         if (valueNode == null){
@@ -144,7 +144,7 @@ public class LFUCache<K,V>  implements Cache<K, V> {
      * {@inheritDoc}
      */
     @Override
-    public boolean contains(K key) {
+    public synchronized boolean contains(K key) {
         return byKey.containsKey(key);
     }
 
@@ -159,11 +159,10 @@ public class LFUCache<K,V>  implements Cache<K, V> {
         nextFreq.items.add(key);
         valueNode.parent = nextFreq;
 
-        freq.items.remove(valueNode);
+        freq.items.remove(key);
         if (freq.items.isEmpty()) {
             freq.unlink();
         }
-        freq.hashCode();
     }
 
     private void ejectOne() {
