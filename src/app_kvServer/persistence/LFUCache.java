@@ -79,22 +79,17 @@ public class LFUCache<K,V>  implements Cache<K, V> {
      * {@inheritDoc}
      */
     @Override
-    public V get(K key) {
-        ValueNode valueNode = byKey.get(key);
-
-        if (valueNode == null) {
-            throw new NoSuchElementException("No such element: " + key);
-        }
-         updateUsage(valueNode, key);
-
-        return valueNode.data;
+    public synchronized Optional<V> get(K key) {
+        return Optional
+                .ofNullable(byKey.get(key))
+                .map(node -> node.data);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void put(K key, V value) {
+    public synchronized void put(K key, V value) {
         ValueNode valueNode = byKey.get(key);
 
         if (valueNode != null) {
@@ -123,11 +118,11 @@ public class LFUCache<K,V>  implements Cache<K, V> {
      * {@inheritDoc}
      */
     @Override
-    public void delete(K key){
+    public synchronized boolean delete(K key){
         ValueNode valueNode = byKey.get(key);
 
         if (valueNode == null){
-            throw new NoSuchElementException("No such element: " + key);
+            return false;
         }
 
         FrequencyNode frequencyNode = valueNode.parent;
@@ -138,13 +133,14 @@ public class LFUCache<K,V>  implements Cache<K, V> {
         }
 
         byKey.remove(key);
+        return true;
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public boolean contains(K key) {
+    public synchronized boolean contains(K key) {
         return byKey.containsKey(key);
     }
 
@@ -159,11 +155,10 @@ public class LFUCache<K,V>  implements Cache<K, V> {
         nextFreq.items.add(key);
         valueNode.parent = nextFreq;
 
-        freq.items.remove(valueNode);
+        freq.items.remove(key);
         if (freq.items.isEmpty()) {
             freq.unlink();
         }
-        freq.hashCode();
     }
 
     private void ejectOne() {

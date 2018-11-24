@@ -5,7 +5,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.NoSuchElementException;
+import java.util.Optional;
 
 /**
  * https://effective-java.com/2011/05/simple-lru-or-fifo-cache/
@@ -39,11 +39,8 @@ public class FIFOCache<K, V> implements Cache<K, V> {
      * @return value of the key
      */
     @Override
-    public V get(K key) {
-        if (cacheMap.get(key) == null) {
-            throw new NoSuchElementException("No such element: " + cacheMap.get(key));
-        }
-        return cacheMap.get(key);
+    public Optional<V> get(K key) {
+        return Optional.ofNullable(cacheMap.get(key));
     }
 
     /**
@@ -74,10 +71,11 @@ public class FIFOCache<K, V> implements Cache<K, V> {
      * @param key
      */
     @Override
-    public void delete(K key) {
+    public boolean delete(K key) {
         if (cacheMap.get(key) == null) {
-            throw new NoSuchElementException("No such element: " + cacheMap.get(key));
+            return false;
         }
         cacheMap.remove(key);
+        return true;
     }
 }
