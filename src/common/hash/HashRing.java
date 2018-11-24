@@ -1,6 +1,9 @@
 package common.hash;
 
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
@@ -12,6 +15,8 @@ import java.util.*;
  */
 public class HashRing {
     private final TreeMap<Integer, InetSocketAddress> circle = new TreeMap<Integer, InetSocketAddress>();
+
+    private final List<InetSocketAddress> nodes = new ArrayList<>();
 
     /**
      * Add a node to the hash ring.
