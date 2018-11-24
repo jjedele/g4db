@@ -2,6 +2,7 @@ package app_kvClient;
 
 import app_kvClient.commands.*;
 import client.KVCommInterface;
+import client.KVInterface;
 import client.KVStore;
 import client.exceptions.ServerSideException;
 import org.apache.logging.log4j.LogManager;
@@ -21,7 +22,7 @@ public class KVClient {
 
     private static final Logger LOG = LogManager.getLogger(KVClient.class);
 
-    private KVCommInterface client;
+    private Optional<KVCommInterface> client;
     private boolean exiting;
     private final Map<String, Class<? extends Command>> commands;
 
@@ -75,7 +76,7 @@ public class KVClient {
      */
     public KVClient() {
         this.exiting = false;
-        this.client = new KVStore("localhost", 50000);
+        this.client = Optional.empty();
 
         // TODO: at some point we could use reflection for this
         this.commands = new HashMap<>();
@@ -180,7 +181,7 @@ public class KVClient {
      * Get the {@link KVCommInterface} associated with this KVClient.
      * @return The client
      */
-    public KVCommInterface getClient() {
+    public Optional<KVCommInterface> getClient() {
         return client;
     }
 
@@ -189,7 +190,7 @@ public class KVClient {
      * @param client The client
      */
     public void setClient(KVCommInterface client) {
-        this.client = client;
+        this.client = Optional.ofNullable(client);
     }
 
     /**
@@ -198,7 +199,7 @@ public class KVClient {
      */
     public String getPrompt() {
         StringBuilder builder = new StringBuilder("EchoClient");
-        if (client.isConnected()) {
+        if (client.map(KVInterface::isConnected).orElse(false)) {
             builder.append(" (connected)");
         }
         builder.append("> ");

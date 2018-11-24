@@ -55,11 +55,9 @@ public class GetCommand implements Command {
     /** {@inheritDoc} */
     @Override
     public String run(KVClient cli) throws CommandException {
-        KVCommInterface client = cli.getClient();
-
-        if (client == null) {
-            throw new CommandException("Not connected.", this);
-        }
+        KVCommInterface client = cli
+                .getClient()
+                .orElseThrow(() -> new CommandException("Not connected.", this));
 
         String reply = null;
         try {

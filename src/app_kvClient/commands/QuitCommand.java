@@ -1,6 +1,7 @@
 package app_kvClient.commands;
 
 import app_kvClient.KVClient;
+import client.KVInterface;
 
 /**
  * The QuitCommand is responsible for shutting down the KVClient.
@@ -25,7 +26,7 @@ public class QuitCommand implements Command {
     /** {@inheritDoc} */
     @Override
     public String run(KVClient cli) {
-        cli.getClient().disconnect();
+        cli.getClient().ifPresent(KVInterface::disconnect);
         cli.setExiting(true);
         return "Shutting down now - Good bye!";
     }

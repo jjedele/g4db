@@ -2,6 +2,7 @@ package app_kvClient.commands;
 
 import app_kvClient.KVClient;
 import client.KVCommInterface;
+import client.KVInterface;
 import client.KVStore;
 import client.exceptions.ClientException;
 
@@ -63,7 +64,7 @@ public class ConnectCommand implements Command {
     /** {@inheritDoc} */
     @Override
     public String run(KVClient cli) throws CommandException {
-        if (cli.getClient().isConnected()) {
+        if (cli.getClient().map(KVInterface::isConnected).orElse(false)) {
             throw new CommandException("Already connected, please disconnect first.", this);
         }
 

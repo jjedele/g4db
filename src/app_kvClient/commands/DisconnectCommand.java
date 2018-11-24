@@ -1,6 +1,7 @@
 package app_kvClient.commands;
 
 import app_kvClient.KVClient;
+import client.KVInterface;
 
 public class DisconnectCommand implements Command {
 
@@ -30,11 +31,11 @@ public class DisconnectCommand implements Command {
      */
     @Override
     public String run(KVClient cli) throws CommandException {
-        if (!cli.getClient().isConnected()) {
+        if (!cli.getClient().map(KVInterface::isConnected).orElse(false)) {
             throw new CommandException("Not connected.", this);
         }
 
-        cli.getClient().disconnect();
+        cli.getClient().ifPresent(KVInterface::disconnect);
         return "Disconnected successfully.";
     }
 }

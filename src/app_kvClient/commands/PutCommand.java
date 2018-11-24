@@ -60,7 +60,9 @@ public class PutCommand implements Command {
     /** {@inheritDoc} */
     @Override
     public String run(KVClient cli) throws CommandException {
-        KVCommInterface client = cli.getClient();
+        KVCommInterface client = cli
+                .getClient()
+                .orElseThrow(() -> new CommandException("Not connected.", this));
 
         String reply = null;
         try {
