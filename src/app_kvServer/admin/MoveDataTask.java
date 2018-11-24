@@ -69,9 +69,9 @@ public class MoveDataTask implements AdminTask {
                     .map(key -> {
                         Optional<KVMessage> result = Optional.empty();
                         try {
-                            String value = persistenceService.get(key);
-                            KVMessage putMessage = new DefaultKVMessage(key, value, KVMessage.StatusType.PUT);
-                            result = Optional.of(putMessage);
+                            result = persistenceService
+                                    .get(key)
+                                    .map(value -> new DefaultKVMessage(key, value, KVMessage.StatusType.PUT));
                         } catch (PersistenceException e) {
                             LOG.error("Error retrieving value.", e);
                         }

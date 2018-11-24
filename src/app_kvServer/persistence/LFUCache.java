@@ -79,15 +79,10 @@ public class LFUCache<K,V>  implements Cache<K, V> {
      * {@inheritDoc}
      */
     @Override
-    public synchronized V get(K key) {
-        ValueNode valueNode = byKey.get(key);
-
-        if (valueNode == null) {
-            throw new NoSuchElementException("No such element: " + key);
-        }
-         updateUsage(valueNode, key);
-
-        return valueNode.data;
+    public synchronized Optional<V> get(K key) {
+        return Optional
+                .ofNullable(byKey.get(key))
+                .map(node -> node.data);
     }
 
     /**
@@ -123,11 +118,11 @@ public class LFUCache<K,V>  implements Cache<K, V> {
      * {@inheritDoc}
      */
     @Override
-    public synchronized void delete(K key){
+    public synchronized boolean delete(K key){
         ValueNode valueNode = byKey.get(key);
 
         if (valueNode == null){
-            throw new NoSuchElementException("No such element: " + key);
+            return false;
         }
 
         FrequencyNode frequencyNode = valueNode.parent;
@@ -138,6 +133,7 @@ public class LFUCache<K,V>  implements Cache<K, V> {
         }
 
         byKey.remove(key);
+        return true;
     }
 
     /**

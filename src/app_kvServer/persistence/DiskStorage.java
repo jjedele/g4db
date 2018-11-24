@@ -1,14 +1,19 @@
 package app_kvServer.persistence;
 
 import common.utils.RecordReader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class DiskStorage implements PersistenceService {
+
+    private static final Logger LOG = LogManager.getLogger(DiskStorage.class);
 
     private static final byte END_MARKER = (byte) '\n';
 
@@ -35,28 +40,34 @@ public class DiskStorage implements PersistenceService {
     }
 
     @Override
-    public String get(String key) throws PersistenceException {
+    public Optional<String> get(String key) throws PersistenceException {
         File inputFile = escapedFile(key);
+        if (!inputFile.exists()) {
+            return Optional.empty();
+        }
+
         try (FileInputStream fileInputStream = new FileInputStream(inputFile)) {
             RecordReader reader = new RecordReader(fileInputStream, END_MARKER);
             byte[] read = reader.read();
-            return new String(read, StandardCharsets.UTF_8);
+            return Optional.of(new String(read, StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new PersistenceException("Could not get key", e);
+            throw new PersistenceException("Could not read entry for key.", e);
         }
     }
 
     @Override
-    public void delete(String key) throws PersistenceException {
+    public boolean delete(String key) {
         File inputFile = escapedFile(key);
-        boolean deleted = inputFile.delete();
-        if (!deleted) {
-            throw new PersistenceException("Could not delete: " + key);
+        if (!inputFile.exists()) {
+            return false;
         }
+
+        boolean deleted = inputFile.delete();
+        return deleted;
     }
 
     @Override
-    public List<String> getKeys() throws PersistenceException {
+    public List<String> getKeys() {
         return Stream.of(dataDirectory.listFiles())
                 .map(File::getName)
                 .collect(Collectors.toList());

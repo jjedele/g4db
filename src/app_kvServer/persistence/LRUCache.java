@@ -37,11 +37,8 @@ public class LRUCache<K,V> implements Cache<K,V>  {
      * @return key with its value
      */
     @Override
-    public V get(K key) {
-        if (cacheMap.get(key) == null ) {
-            throw new NoSuchElementException("No such element: " + cacheMap.get(key));
-        }
-        return cacheMap.get(key);
+    public Optional<V> get(K key) {
+        return Optional.ofNullable(cacheMap.get(key));
     }
 
     /**
@@ -69,11 +66,12 @@ public class LRUCache<K,V> implements Cache<K,V>  {
      * @param key
      */
     @Override
-    public void delete(K key) {
+    public boolean delete(K key) {
         if (cacheMap.get(key) == null) {
-            throw new NoSuchElementException("No such element: " + cacheMap.get(key));
+            return false;
         }
         cacheMap.remove(key);
+        return true;
     }
 
 }

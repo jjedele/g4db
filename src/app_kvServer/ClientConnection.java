@@ -225,12 +225,10 @@ public class ClientConnection implements Runnable {
         KVMessage reply;
 
         try {
-            String value = persistenceService.get(msg.getKey());
-
-            reply = new DefaultKVMessage(
-                    msg.getKey(),
-                    value,
-                    KVMessage.StatusType.GET_SUCCESS);
+            reply = persistenceService
+                    .get(msg.getKey())
+                    .map(value -> new DefaultKVMessage(msg.getKey(), value, KVMessage.StatusType.GET_SUCCESS))
+                    .orElse(new DefaultKVMessage(msg.getKey(), "key not found", KVMessage.StatusType.GET_ERROR));
         } catch (PersistenceException e) {
             LOG.error("Error handling GET request.", e);
 
