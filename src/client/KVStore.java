@@ -162,6 +162,10 @@ public class KVStore implements KVCommInterface {
         for (InetSocketAddress node : nodesToRemove) {
             removeNodeConnection(node);
         }
+
+        for (InetSocketAddress node : hashRing.getNodes()) {
+            LOG.info("Updated node responsibility {}: {}", node, hashRing.getAssignedRange(node));
+        }
     }
 
     private void addNodeConnection(InetSocketAddress node) {

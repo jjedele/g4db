@@ -15,11 +15,11 @@
         </File>
     </Appenders>
     <Loggers>
-        <Root level="debug">
+        <Root level="info">
             <!--<AppenderRef ref="Console"/>-->
             <AppenderRef ref="CloudDB" />
         </Root>
-        <Logger name="app_kvServer" level="all" additivity="false">
+        <Logger name="app_kvServer" level="info" additivity="false">
             <AppenderRef ref="Console" />
             <appender-ref ref="kvServer" />
         </Logger>
