@@ -4,6 +4,7 @@ import app_kvServer.CacheReplacementStrategy;
 
 import java.io.File;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 /**
  * Persists values directly to disk and maintains a configurable
@@ -65,7 +66,9 @@ public class CachedDiskStorage implements PersistenceService {
     @Override
     public synchronized void delete(String key) throws PersistenceException {
         diskStorage.delete(key);
-        cache.delete(key);
+        if (cache.contains(key)) {
+            cache.delete(key);
+        }
     }
 
     /**

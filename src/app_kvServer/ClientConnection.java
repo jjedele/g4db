@@ -1,6 +1,8 @@
 package app_kvServer;
 
+import app_kvServer.admin.AdminTask;
 import app_kvServer.admin.AdminTasks;
+import app_kvServer.admin.CleanUpDataTask;
 import app_kvServer.admin.MoveDataTask;
 import app_kvServer.persistence.PersistenceException;
 import app_kvServer.persistence.PersistenceService;
@@ -297,6 +299,11 @@ public class ClientConnection implements Runnable {
             UpdateMetadataRequest updateMetadataRequest = (UpdateMetadataRequest) msg;
             serverState.setClusterNodes(updateMetadataRequest.getNodes());
             LOG.info("Admin: Updated meta data.");
+
+            Range newKeyRange = serverState.getClusterNodes().getAssignedRange(serverState.getMyself());
+            CleanUpDataTask cleanUpDataTask = new CleanUpDataTask(persistenceService, newKeyRange);
+            AdminTasks.addTask(cleanUpDataTask);
+
             return GenericResponse.success();
         } else if (msg instanceof MoveDataRequest) {
             MoveDataRequest moveDataRequest = (MoveDataRequest) msg;
