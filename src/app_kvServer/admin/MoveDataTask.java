@@ -33,6 +33,12 @@ public class MoveDataTask implements AdminTask {
     private List<String> keysToTransfer;
     private final AtomicInteger counter;
 
+    /**
+     * Constructor.
+     * @param persistenceService Persistence service to get entries from
+     * @param keyRange Range of keys to transfer
+     * @param destination Destination server
+     */
     public MoveDataTask(PersistenceService persistenceService, Range keyRange, InetSocketAddress destination) {
         this.persistenceService = persistenceService;
         this.keyRange = keyRange;
@@ -52,12 +58,14 @@ public class MoveDataTask implements AdminTask {
         communicationModule.start();
 
         try {
+            // assemble a list of keys we want to transfer
             List<String> keysToTransfer = persistenceService.getKeys().stream()
                     .filter(key -> keyRange.contains(HashRing.hash(key)))
                     .collect(Collectors.toList());
             this.keysToTransfer = Collections.unmodifiableList(keysToTransfer);
 
             List<CompletableFuture<KVMessage>> transfers = keysToTransfer.stream()
+                    // create a PUT request for the entry
                     .map(key -> {
                         Optional<KVMessage> result = Optional.empty();
                         try {
@@ -71,7 +79,9 @@ public class MoveDataTask implements AdminTask {
                     })
                     .filter(Optional::isPresent)
                     .map(Optional::get)
+                    // send the PUT request to the destination server
                     .map(communicationModule::send)
+                    // update the state of this task
                     .map(future -> future
                             .thenApply(CorrelatedMessage::getKVMessage)
                             .thenApply(reply -> {
@@ -84,6 +94,7 @@ public class MoveDataTask implements AdminTask {
                             }))
                     .collect(Collectors.toList());
 
+            // wait until the whole transfer completed
             CompletableFuture<Void> overallTransfer = CompletableFuture.allOf(transfers.toArray(new CompletableFuture[] {}));
             overallTransfer.get();
         } catch (PersistenceException | InterruptedException | ExecutionException e) {
