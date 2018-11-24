@@ -203,7 +203,7 @@ public class ClientConnection implements Runnable {
 
             reply = new DefaultKVMessage(
                     msg.getKey(),
-                    msg.getValue(),
+                    null,
                     status);
         } catch (PersistenceException e) {
             LOG.error("Error handling PUT request.", e);
