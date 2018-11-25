@@ -87,4 +87,9 @@ public class DummyAdminClient implements KVAdminInterface {
         LOG.info("Server {}: Disconnect", serverAddress);
         return new MaintenanceStatusResponse(true, "dummytask", 42);
     }
+
+    @Override
+    public InetSocketAddress getNodeAddress() {
+        return serverAddress;
+    }
 }

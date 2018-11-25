@@ -15,6 +15,12 @@ import java.util.Collection;
 public interface KVAdminInterface extends KVInterface {
 
     /**
+     * Return the address of the node this module is connected to.
+     * @return Address
+     */
+    InetSocketAddress getNodeAddress();
+
+    /**
      * Request the server to update it's metadata table.
      * @param nodes A list of node responsibility entries
      * @return Server response

@@ -54,7 +54,7 @@ public class CommunicationModule {
         this.restarting = new AtomicBoolean(false);
         this.messageCounter = new AtomicLong(0);
         this.outstandingRequests = new LinkedBlockingDeque<>();
-        this.correlatedRequests = new ConcurrentHashMap<>(100);
+        this.correlatedRequests = new ConcurrentHashMap<>(bufferCapacity);
         this.running = false;
         // make log4j inherit thread contexts from parent thread because we use a lot of workers
         System.setProperty("log4j2.isThreadContextMapInheritable", "true");
@@ -273,6 +273,11 @@ public class CommunicationModule {
         int reconnectTries = 0;
         while (socket == null && reconnectTries < 10) {
             try {
+                // client could get disconnected while we're in this reconnecting loop
+                if (terminated.get()) {
+                    return;
+                }
+
                 socket = new Socket(address.getHostName(), address.getPort());
                 ThreadContext.put("client", socket.getLocalSocketAddress().toString());
                 ThreadContext.put("server", socket.getRemoteSocketAddress().toString());

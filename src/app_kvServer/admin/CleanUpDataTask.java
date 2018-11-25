@@ -8,7 +8,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -22,7 +21,7 @@ public class CleanUpDataTask implements AdminTask {
     private final PersistenceService persistenceService;
     private final Range keyRange;
     private final AtomicInteger counter;
-    private int total;
+    private List<String> keysToDelete;
 
     /**
      * Constructor.
@@ -33,25 +32,29 @@ public class CleanUpDataTask implements AdminTask {
         this.persistenceService = persistenceService;
         this.keyRange = keyRange;
         this.counter = new AtomicInteger(0);
-        this.total = 1;
     }
 
     @Override
     public float getProgress() {
-        return (float) counter.get() / total;
+        if (keysToDelete != null && keysToDelete.size() == 0) {
+            // no work
+            return 1;
+        } else {
+            int divider = keysToDelete != null ? keysToDelete.size() : 1;
+            return (float) counter.get() / divider;
+        }
     }
 
     @Override
     public void run() {
         // assemble a list of keys we want to transfer
         try {
-            List<String> keysToTransfer = persistenceService.getKeys().stream()
+            keysToDelete = persistenceService.getKeys().stream()
                     .filter(key -> !keyRange.contains(HashRing.hash(key)))
                     .collect(Collectors.toList());
-            this.total = keysToTransfer.size();
 
-            LOG.info("Starting clean up of {} keys", total);
-            keysToTransfer.stream()
+            LOG.info("Starting clean up of {} keys", keysToDelete.size());
+            keysToDelete.stream()
                     .forEach(key -> {
                         try {
                             persistenceService.delete(key);
