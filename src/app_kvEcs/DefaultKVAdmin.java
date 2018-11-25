@@ -159,6 +159,7 @@ public class DefaultKVAdmin implements KVAdmin {
         // set up the node
         try {
             KVAdminInterface adminClient = initializeNode(nodeToAdd, cacheSize, displacementStrategy);
+            adminClient.start();
             adminClients.put(adminClient.getNodeAddress(), adminClient);
             hashRing.addNode(adminClient.getNodeAddress());
         } catch (IOException | InterruptedException | ClientException e) {
@@ -312,7 +313,7 @@ public class DefaultKVAdmin implements KVAdmin {
         kvadmin.start();
         Thread.sleep(30000);
         kvadmin.addNode(25, CacheReplacementStrategy.FIFO);
-        Thread.sleep(30000);
+        Thread.sleep(60000);
         kvadmin.removeNode();
         Thread.sleep(30000);
         kvadmin.shutDown();
