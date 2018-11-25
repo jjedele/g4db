@@ -1,6 +1,7 @@
 package testing;
 
 import common.hash.HashRing;
+import common.hash.Range;
 import junit.framework.TestCase;
 
 import java.net.InetSocketAddress;
@@ -29,9 +30,9 @@ public class HashRingTest extends TestCase {
         hashRing.addNode(node1);
         hashRing.addNode(node2);
 
-        InetSocketAddress responsibleNode = hashRing.getResponsibleNode("3");
+        InetSocketAddress responsibleNode = hashRing.getResponsibleNode("7");
 
-        assertEquals(node2, responsibleNode);
+        assertEquals(node1, responsibleNode);
     }
 
     public void testMD5Hash() {
@@ -44,20 +45,31 @@ public class HashRingTest extends TestCase {
         // does not throw exception
     }
 
-    public void getResponsibleNode() {
+    public void testGetSuccessor(){
         HashRing hashRing = new TestHashRing();
 
-        InetSocketAddress node1 = new InetSocketAddress("localhost", 1);
-        InetSocketAddress node2 = new InetSocketAddress("localhost", 7);
+        InetSocketAddress node1 = new InetSocketAddress("localhost", 100);
+        InetSocketAddress node2 = new InetSocketAddress("localhost", 5);
         hashRing.addNode(node1);
         hashRing.addNode(node2);
 
-        InetSocketAddress  ResponsibleNode = hashRing.getResponsibleNode("5");
-        System.out.println(ResponsibleNode);
+        InetSocketAddress getSuccessorNode = hashRing.getSuccessor(node1);
+
+        assertEquals(getSuccessorNode, node2);
 
     }
-    public void getSuccessor(){
+    public void testGetAssignedRange(){
+        HashRing hashRing = new TestHashRing();
+
+        InetSocketAddress node1 = new InetSocketAddress("localhost", 1);
+        InetSocketAddress node2 = new InetSocketAddress("localhost", 5);
+        hashRing.addNode(node1);
+        hashRing.addNode(node2);
+
+        Range assignedRange = hashRing.getAssignedRange(node1);
+        System.out.println(assignedRange);
 
     }
+
 
 }
