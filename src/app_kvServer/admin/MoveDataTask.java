@@ -3,6 +3,7 @@ package app_kvServer.admin;
 import app_kvServer.persistence.PersistenceException;
 import app_kvServer.persistence.PersistenceService;
 import client.CommunicationModule;
+import client.exceptions.ClientException;
 import common.CorrelatedMessage;
 import common.hash.HashRing;
 import common.hash.Range;
@@ -55,9 +56,10 @@ public class MoveDataTask implements AdminTask {
     @Override
     public void run() {
         CommunicationModule communicationModule = new CommunicationModule(destination, 1000);
-        communicationModule.start();
 
         try {
+            communicationModule.start();
+
             // assemble a list of keys we want to transfer
             List<String> keysToTransfer = persistenceService.getKeys().stream()
                     .filter(key -> keyRange.contains(HashRing.hash(key)))
@@ -97,7 +99,7 @@ public class MoveDataTask implements AdminTask {
             // wait until the whole transfer completed
             CompletableFuture<Void> overallTransfer = CompletableFuture.allOf(transfers.toArray(new CompletableFuture[] {}));
             overallTransfer.get();
-        } catch (PersistenceException | InterruptedException | ExecutionException e) {
+        } catch (PersistenceException | InterruptedException | ExecutionException | ClientException e) {
             LOG.error("Could not transfer values.", e);
         } finally {
             communicationModule.stop();

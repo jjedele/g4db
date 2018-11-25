@@ -22,7 +22,7 @@ public class DiskStorageTest extends TestCase {
     public void testBasicPersistence() throws PersistenceException {
         storage.put("foo", "bar");
 
-        assertEquals("bar", storage.get("foo"));
+        assertEquals("bar", storage.get("foo").get());
     }
 
     public void testPersistenceAfterRestart() throws PersistenceException {
@@ -31,18 +31,10 @@ public class DiskStorageTest extends TestCase {
         // simulate restart
         DiskStorage storage2 = new DiskStorage(storageDir);
 
-        assertEquals("bar", storage2.get("foo"));
+        assertEquals("bar", storage2.get("foo").get());
     }
 
     public void testGettingNonexistentValue() throws PersistenceException {
-        Exception e = null;
-
-        try {
-            storage.get("nonexistent");
-        } catch (Exception exc) {
-            e = exc;
-        }
-
-        assertTrue(e instanceof PersistenceException);
+        assertFalse(storage.get("nonexistent").isPresent());
     }
 }

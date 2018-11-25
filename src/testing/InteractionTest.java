@@ -1,25 +1,34 @@
 package testing;
 
+import client.KVAdmin;
+import client.KVAdminInterface;
 import client.KVStore;
 import common.messages.KVMessage;
 import common.messages.KVMessage.StatusType;
 import junit.framework.TestCase;
 import org.junit.Test;
 
+import java.net.InetSocketAddress;
+
 
 public class InteractionTest extends TestCase {
 
     private KVStore kvClient;
+    private KVAdminInterface kvAdmin;
 
     public void setUp() {
         kvClient = new KVStore("localhost", 50000);
+        kvAdmin = new KVAdmin(new InetSocketAddress("localhost", 50000));
         try {
             kvClient.connect();
+            kvAdmin.connect();
+            kvAdmin.start();
         } catch (Exception e) {
         }
     }
 
     public void tearDown() {
+        kvAdmin.disconnect();
         kvClient.disconnect();
     }
 
@@ -72,8 +81,8 @@ public class InteractionTest extends TestCase {
             ex = e;
         }
 
-        assertTrue(ex == null && response.getStatus() == StatusType.PUT_UPDATE
-                && response.getValue().equals(updatedValue));
+        assertTrue(ex == null && response.getStatus() == StatusType.PUT_UPDATE);
+        // we removed the value check because we decided not to send the value back to reduce network traffic
     }
 
     @Test
@@ -102,7 +111,7 @@ public class InteractionTest extends TestCase {
         Exception ex = null;
 
         try {
-            kvClient.put(key, value);
+            response = kvClient.put(key, value);
             response = kvClient.get(key);
         } catch (Exception e) {
             ex = e;

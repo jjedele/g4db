@@ -98,40 +98,6 @@ public class ServerLifecycleTest extends TestCase {
         assertEquals(KVMessage.StatusType.PUT_UPDATE, reply.getStatus());
     }
 
-    public void testKeyRangeResponsibility() throws Exception {
-        startServer();
-
-        String key1 = "foo";
-        int key1Hash = key1.getBytes()[0];
-        String key2 = "bar";
-        int key2Hash = key2.getBytes()[0];
-
-        KVMessage reply = kvClient.put(key1, "baz");
-        assertEquals(KVMessage.StatusType.PUT_SUCCESS, reply.getStatus());
-        reply = kvClient.put(key2, "baz");
-        assertEquals(KVMessage.StatusType.PUT_SUCCESS, reply.getStatus());
-
-        // assign key ranges such that server is responsible for key2 but not key1
-        NodeEntry ourNode = new NodeEntry(
-                "us",
-                new InetSocketAddress("localhost", port),
-                new Range(0, key2Hash));
-        NodeEntry imaginaryNode = new NodeEntry(
-                "us",
-                new InetSocketAddress("localhost", port + 42),
-                new Range(key2Hash, key1Hash));
-
-        GenericResponse updateReply = kvAdmin.updateMetadata(Arrays.asList(ourNode, imaginaryNode));
-        assertTrue(updateReply.getMessage(), updateReply.isSuccess());
-
-        reply = kvClient.get(key2);
-        assertEquals(KVMessage.StatusType.GET_SUCCESS, reply.getStatus());
-
-        reply = kvClient.get(key1);
-        assertEquals(KVMessage.StatusType.SERVER_NOT_RESPONSIBLE, reply.getStatus());
-        assertEquals(NodeEntry.multipleToSerializableString(Arrays.asList(ourNode, imaginaryNode)), reply.getValue());
-    }
-
     private void startServer() throws ClientException {
         GenericResponse reponse = kvAdmin.start();
         assertTrue(reponse.getMessage(), reponse.isSuccess());

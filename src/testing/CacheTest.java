@@ -45,7 +45,7 @@ public class CacheTest extends TestCase {
         assertTrue(cache.contains("key4"));
         cache.delete("key6");
         assertFalse(cache.contains("key6"));
-        assertEquals("value5", cache.get("key5"));
+        assertEquals("value5", cache.get("key5").get());
     }
 
     public void testFIFOCache() {
@@ -65,7 +65,7 @@ public class CacheTest extends TestCase {
         assertTrue(fifoCache.contains("key4"));
         fifoCache.delete("key6");
         assertFalse(fifoCache.contains("key6"));
-        assertEquals("value5", fifoCache.get("key5"));
+        assertEquals("value5", fifoCache.get("key5").get());
     }
 
 }

@@ -21,6 +21,7 @@ public class KVStore implements KVCommInterface {
     private final HashRing hashRing;
     private final Map<InetSocketAddress, CommunicationModule> communicationModules;
     private boolean running;
+    private final InetSocketAddress seedAddress;
 
     /**
      * Initialize KVStore with address and port of KVServer
@@ -31,16 +32,18 @@ public class KVStore implements KVCommInterface {
     public KVStore(String address, int port) {
         this.hashRing = new HashRing();
         this.communicationModules = new ConcurrentHashMap<>();
-        // TODO this immediately starts the module right now, see if this is a problem
-        addNodeConnection(new InetSocketAddress(address, port));
-        this.running = true;
+        this.seedAddress = new InetSocketAddress(address, port);
+        this.running = false;
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public void connect() {
+    public void connect() throws ClientException {
+        if (!communicationModules.containsKey(seedAddress)) {
+            addNodeConnection(seedAddress);
+        }
         for (CommunicationModule communicationModule : communicationModules.values()) {
             communicationModule.start();
         }
@@ -63,6 +66,8 @@ public class KVStore implements KVCommInterface {
      */
     @Override
     public KVMessage put(String key, String value) throws ClientException {
+        ensureConnected();
+
         // not my preferred API, but we want to match the interface
         if (value == null || "null".equals(value)) {
             return delete(key);
@@ -156,7 +161,11 @@ public class KVStore implements KVCommInterface {
         nodesToRemove.removeAll(newNodes);
 
         for (InetSocketAddress node : nodesToAdd) {
-            addNodeConnection(node);
+            try {
+                addNodeConnection(node);
+            } catch (ClientException e) {
+                LOG.error("Could not add new connection to node " + node, e);
+            }
         }
 
         for (InetSocketAddress node : nodesToRemove) {
@@ -168,7 +177,7 @@ public class KVStore implements KVCommInterface {
         }
     }
 
-    private void addNodeConnection(InetSocketAddress node) {
+    private void addNodeConnection(InetSocketAddress node) throws ClientException {
         CommunicationModule communicationModule = new CommunicationModule(node, 1000);
         communicationModule.start();
         communicationModules.put(node, communicationModule);

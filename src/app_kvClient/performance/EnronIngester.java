@@ -50,7 +50,7 @@ public class EnronIngester extends SimpleFileVisitor<Path> {
         return super.visitFile(file, attrs);
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, ClientException {
         String[] parts = args[0].split(":");
         KVStore client = new KVStore(parts[0], Integer.parseInt(parts[1]));
         client.connect();

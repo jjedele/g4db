@@ -1,5 +1,7 @@
 package client;
 
+import client.exceptions.ClientException;
+import client.exceptions.ConnectionException;
 import common.CorrelatedMessage;
 import common.Protocol;
 import common.exceptions.ProtocolException;
@@ -14,6 +16,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -85,7 +88,7 @@ public class CommunicationModule {
     /**
      * Start the client.
      */
-    public void start() {
+    public void start() throws ClientException {
         terminated.set(false);
         restartIfNotTerminated();
         this.running = true;
@@ -157,7 +160,11 @@ public class CommunicationModule {
                 if (restarting.compareAndSet(false, true)) {
                     // when both reader and writer realize the broken connection, the first one wins
                     LOG.debug("Writer thread triggered the restart.");
-                    restartIfNotTerminated();
+                    try {
+                        restartIfNotTerminated();
+                    } catch (ClientException e1) {
+                        LOG.error("Could not restart connection.", e1);
+                    }
                 }
             }
         }
@@ -215,7 +222,11 @@ public class CommunicationModule {
                 if (restarting.compareAndSet(false, true)) {
                     // when both reader and writer realize the broken connection, the first one wins
                     LOG.debug("Reader thread triggered the restart.");
-                    restartIfNotTerminated();
+                    try {
+                        restartIfNotTerminated();
+                    } catch (ClientException e1) {
+                        LOG.error("Could not restart connection.", e1);
+                    }
                 }
             }
         }
@@ -255,7 +266,7 @@ public class CommunicationModule {
     }
 
     // try to restart the client
-    private void restartIfNotTerminated() {
+    private void restartIfNotTerminated() throws ClientException {
         if (terminated.get()) {
             return;
         }
@@ -271,6 +282,7 @@ public class CommunicationModule {
         readerThread = null;
         int reconnectWait = 1;
         int reconnectTries = 0;
+        Exception lastException = null;
         while (socket == null && reconnectTries < 10) {
             try {
                 socket = new Socket(address.getHostName(), address.getPort());
@@ -278,7 +290,10 @@ public class CommunicationModule {
                 ThreadContext.put("server", socket.getRemoteSocketAddress().toString());
                 writerThread = new WriterThread(socket.getOutputStream());
                 readerThread = new ReaderThread(socket.getInputStream());
+            } catch (UnknownHostException e) {
+                throw new ConnectionException("Connection failed because host is not known.", e);
             } catch (IOException e) {
+                lastException = e;
                 reconnectTries++;
                 // exponential backoff
                 if (reconnectWait < 16) {
@@ -299,8 +314,8 @@ public class CommunicationModule {
         if (socket == null) {
             cleanUpOutstandingRequests(false);
             running = false;
-            throw new RuntimeException(
-                    String.format("Could not establish connection after %s tries.", reconnectTries));
+            throw new ClientException(String.format("Could not connect to %s to after %d tries.", address, reconnectTries),
+                    lastException);
         } else {
             cleanUpOutstandingRequests(true);
         }

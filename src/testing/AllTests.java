@@ -2,6 +2,7 @@ package testing;
 
 import app_kvServer.CacheReplacementStrategy;
 import app_kvServer.KVServer;
+import common.hash.Range;
 import junit.framework.Test;
 import junit.framework.TestSuite;
 import java.io.File;
@@ -34,6 +35,8 @@ public class AllTests {
         clientSuite.addTestSuite(DiskStorageTest.class);
         clientSuite.addTestSuite(CacheTest.class);
         clientSuite.addTestSuite(HashRingTest.class);
+        clientSuite.addTestSuite(ServerLifecycleTest.class);
+        clientSuite.addTestSuite(RangeTest.class);
         return clientSuite;
     }
 

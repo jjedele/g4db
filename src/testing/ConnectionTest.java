@@ -41,15 +41,15 @@ public class ConnectionTest extends TestCase {
 
     public void testIllegalPort() {
         Exception ex = null;
-        KVStore kvClient = new KVStore("localhost", 123456789);
 
         try {
+            KVStore kvClient = new KVStore("localhost", 123456789);
             kvClient.connect();
         } catch (Exception e) {
             ex = e;
         }
 
-        assertTrue(ex instanceof ConnectionException);
+        assertTrue(ex instanceof IllegalArgumentException);
     }
 
 }
