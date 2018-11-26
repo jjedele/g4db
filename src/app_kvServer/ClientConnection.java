@@ -115,6 +115,10 @@ public class ClientConnection implements Runnable {
                 ThreadContext.remove("correlation");
             }
 
+            outputStream.write(Protocol.SHUTDOWN_CMD);
+            outputStream.write(RECORD_SEPARATOR);
+            outputStream.flush();
+
             socket.close();
         } catch (IOException e) {
             LOG.error("Communication problem with client.", e);

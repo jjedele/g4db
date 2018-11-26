@@ -22,6 +22,7 @@ public final class Protocol {
     }
 
     private static final char UNIT_SEPARATOR = 0x1f;
+    public static final byte[] SHUTDOWN_CMD = new byte[] {0x0, 0x42, 0x0};
 
     private static final Map<Byte, KVMessage.StatusType> STATUS_BY_OPCODE;
     static {

@@ -113,7 +113,7 @@ public class KVStore implements KVCommInterface {
                     .send(msg)
                     .thenApply(CorrelatedMessage::getKVMessage)
                     .thenCompose(reply -> checkReplyForResponsibility(reply, msg))
-                    .get(30, TimeUnit.SECONDS);
+                    .get(5, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new ClientException("Could not process message.", e);
         }

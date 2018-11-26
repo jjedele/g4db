@@ -181,7 +181,13 @@ public class CommunicationModule {
                     byte[] payload = recordReader.read();
 
                     if (payload == null) {
+                        LOG.info("Restarting client because no more input from socket.");
+                        break;
+                    }
+                    if (Arrays.equals(Protocol.SHUTDOWN_CMD, payload)) {
                         // input stream has been shutdown externally, we can stop
+                        LOG.info("Shutting down client because received connection closed.");
+                        terminated.set(true);
                         break;
                     }
 
@@ -252,6 +258,8 @@ public class CommunicationModule {
                 // ignore
             }
         }
+
+        cleanUpOutstandingRequests(false);
     }
 
     // try to restart the client
