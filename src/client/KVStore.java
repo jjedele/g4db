@@ -109,13 +109,31 @@ public class KVStore implements KVCommInterface {
 
     private KVMessage sendAndGetReply(KVMessage msg) throws ClientException {
         try {
-            return communicationModuleForKey(msg.getKey())
+            CompletableFuture<KVMessage> futureReply = communicationModuleForKey(msg.getKey())
                     .send(msg)
-                    .thenApply(CorrelatedMessage::getKVMessage)
-                    .thenCompose(reply -> checkReplyForResponsibility(reply, msg))
-                    .get(5, TimeUnit.SECONDS);
+                    .thenApply(CorrelatedMessage::getKVMessage);
+
+            KVMessage reply = futureReply.get(3, TimeUnit.SECONDS);
+
+            // check if the cluster has been updated possibly retry
+            return checkReplyForResponsibility(reply, msg)
+                    .get(3, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new ClientException("Could not process message.", e);
+            if (communicationModuleForKey(msg.getKey()).isRunning()) {
+                // request could not be completed for some non-systematic reason
+                throw new ClientException("Could not process message.", e);
+            } else {
+                // server has been stopped
+                // redirect the request to the successor node as heuristic
+                if (hashRing.isEmpty()) {
+                    throw new ClientException("No more nodes to try.");
+                }
+                InetSocketAddress staleNode = hashRing.getResponsibleNode(msg.getKey());
+                InetSocketAddress successor = hashRing.getSuccessor(staleNode);
+                LOG.info("Detected stale node {}. Retrying on successor {}.", staleNode, successor);
+                removeNodeConnection(staleNode);
+                return sendAndGetReply(msg);
+            }
         }
     }
 

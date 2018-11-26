@@ -50,7 +50,7 @@ public class Range {
      * @return true if value is contained
      */
     public boolean contains(int val) {
-        if (start <= end) {
+        if (start < end) {
             return start < val && val <= end;
         } else {
             // range wraps around the circle

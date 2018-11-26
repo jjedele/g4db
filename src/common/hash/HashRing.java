@@ -70,8 +70,7 @@ public class HashRing {
      * @param val The value
      * @return Address of the responsible node
      */
-
-        public InetSocketAddress getResponsibleNode(String val) {
+    public InetSocketAddress getResponsibleNode(String val) {
         // TODO
         int hashVal = getHash(val);
         for (int key : circle.navigableKeySet()) {
@@ -97,6 +96,23 @@ public class HashRing {
             return circle.firstEntry().getValue();
         return circle.higherEntry(nodeKey).getValue();
 
+    }
+
+    /**
+     * Return if the hash ring contains given node.
+     * @param node Node
+     * @return True if contained
+     */
+    public boolean contains(InetSocketAddress node) {
+        return circle.containsValue(node);
+    }
+
+    /**
+     * Return if the hash ring is empty.
+     * @return True if empty
+     */
+    public boolean isEmpty() {
+        return circle.isEmpty();
     }
 
     // dynamic wrapper to we can override it

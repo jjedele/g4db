@@ -246,7 +246,12 @@ public class DefaultKVAdmin implements KVAdmin {
         // transfer data from node to be removed to successor
         InetSocketAddress successor = hashRing.getSuccessor(nodeToRemove);
         Range assignedRange = hashRing.getAssignedRange(nodeToRemove);
+
+        hashRing.removeNode(nodeToRemove);
+
         try {
+            // we need to update the meta data for the successor before starting the transfer so that it accepts the entries
+            adminClients.get(successor).updateMetadata(activeNodeEntries());
             candidateAdmin.enableWriteLock();
             moveDataAndWaitForCompletion(nodeToRemove, successor, assignedRange);
             candidateAdmin.disableWriteLock();
@@ -262,7 +267,6 @@ public class DefaultKVAdmin implements KVAdmin {
             LOG.error("Could not shutdown node: " + nodeToRemove, e);
         }
         adminClients.remove(nodeToRemove);
-        hashRing.removeNode(nodeToRemove);
 
         // notify other nodes about the updated cluster
         Collection<NodeEntry> clusterNodes = activeNodeEntries();
@@ -279,7 +283,7 @@ public class DefaultKVAdmin implements KVAdmin {
 
     private Collection<NodeEntry> activeNodeEntries() {
         return servers.stream()
-                .filter(serverInfo -> adminClients.containsKey(serverInfo.address))
+                .filter(serverInfo -> hashRing.contains(serverInfo.address))
                 .map(serverInfo -> new NodeEntry(serverInfo.name, serverInfo.address,
                         hashRing.getAssignedRange(serverInfo.address)))
                 .collect(Collectors.toList());
@@ -330,7 +334,6 @@ public class DefaultKVAdmin implements KVAdmin {
                 String.format("%s@%s", remoteUser, remoteServer.getHostString()),
                 command
         };
-        System.out.println(Arrays.toString(cmd));
         Runtime runtime = Runtime.getRuntime();
         Process process = runtime.exec(cmd);
         int exitCode = process.waitFor();
@@ -340,12 +343,14 @@ public class DefaultKVAdmin implements KVAdmin {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        DefaultKVAdmin kvadmin = new DefaultKVAdmin();
-        kvadmin.initService(2, 45, CacheReplacementStrategy.LRU);
+        DefaultKVAdmin kvadmin = new DefaultKVAdmin(Arrays.asList(
+                new ServerInfo("node1", "jeff", new InetSocketAddress("localhost", 50000)),
+                new ServerInfo("node2", "jeff", new InetSocketAddress("localhost", 50000))));
+        kvadmin.initService(1, 45, CacheReplacementStrategy.LRU);
         kvadmin.start();
-        Thread.sleep(30000);
+        Thread.sleep(20000);
         kvadmin.addNode(25, CacheReplacementStrategy.FIFO);
-        Thread.sleep(60000);
+        Thread.sleep(10000);
         kvadmin.removeNode();
         Thread.sleep(30000);
         kvadmin.shutDown();

@@ -107,6 +107,7 @@ public class KVServer implements Runnable, SessionRegistry {
     @Override
     public void run() {
         LOG.info("Binding to {}", serverState.getMyself());
+        System.setProperty("log4j2.isThreadContextMapInheritable", "true");
         ThreadContext.put("serverPort", Integer.toString(port));
 
         // try to register server state as MBean

@@ -33,7 +33,7 @@ public class CommunicationModule {
     private final InetSocketAddress address;
     private final AtomicBoolean terminated;
     private final AtomicBoolean restarting;
-    private boolean running;
+    private volatile boolean running;
     private final AtomicLong messageCounter;
     private final BlockingDeque<AcceptedMessage> outstandingRequests;
     private final Map<Long, AcceptedMessage> correlatedRequests;
@@ -106,7 +106,7 @@ public class CommunicationModule {
      * @return Running state
      */
     public boolean isRunning() {
-        return running;
+        return !terminated.get();
     }
 
     // message that has been accepted into the sending queue
