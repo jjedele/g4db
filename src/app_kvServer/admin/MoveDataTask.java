@@ -48,8 +48,13 @@ public class MoveDataTask implements AdminTask {
 
     @Override
     public float getProgress() {
-        int divider = keysToTransfer != null ? keysToTransfer.size() : 1;
-        return (float) counter.get() / divider;
+        if (keysToTransfer != null && keysToTransfer.size() == 0) {
+            // no work
+            return 1;
+        } else {
+            int divider = keysToTransfer != null ? keysToTransfer.size() : 1;
+            return (float) counter.get() / divider;
+        }
     }
 
     @Override

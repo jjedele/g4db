@@ -18,6 +18,7 @@ import java.util.concurrent.TimeoutException;
  */
 public class KVAdmin implements KVAdminInterface {
 
+    private final InetSocketAddress address;
     private final CommunicationModule communicationModule;
     private int timeoutSeconds;
 
@@ -26,8 +27,17 @@ public class KVAdmin implements KVAdminInterface {
      * @param server Address of the server to connect to.
      */
     public KVAdmin(InetSocketAddress server) {
+        this.address = server;
         this.communicationModule = new CommunicationModule(server, 1000);
         this.timeoutSeconds = 30;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public InetSocketAddress getNodeAddress() {
+        return address;
     }
 
     /**

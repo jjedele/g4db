@@ -1,28 +1,27 @@
 package app_kvEcs;
 
 import app_kvServer.CacheReplacementStrategy;
-import app_kvServer.persistence.Cache;
-import app_kvServer.persistence.FIFOCache;
-import client.DummyAdminClient;
 import client.KVAdminInterface;
 import client.exceptions.ClientException;
-import com.jcraft.jsch.JSchException;
 import common.hash.HashRing;
 import common.hash.NodeEntry;
 import common.hash.Range;
 import common.messages.admin.MaintenanceStatusResponse;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
+import java.io.File;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
  * Default implementation of {@link KVAdmin}.
  */
 public class DefaultKVAdmin implements KVAdmin {
+
+    private static final Logger LOG = LogManager.getLogger(DefaultKVAdmin.class);
 
     /**
      * Simple tuple holding name and address of a server.
@@ -50,231 +49,245 @@ public class DefaultKVAdmin implements KVAdmin {
             this.address = address;
         }
 
+        @Override
+        public String toString() {
+            return String.format("%s->%s@%s", name, userName, address);
+        }
     }
 
     private final List<ServerInfo> servers;
     private final Map<InetSocketAddress, KVAdminInterface> adminClients;
+    private final HashRing hashRing;
 
     public DefaultKVAdmin(Collection<ServerInfo> servers) {
-        // TODO: maintain list of possible server nodes - DONE
         this.servers = new ArrayList<>(servers);
         this.adminClients = new HashMap<>();
+        this.hashRing = new HashRing();
     }
 
     @Override
     public void initService(int numberOfNodes, int cacheSize, CacheReplacementStrategy displacementStrategy) {
-        // start servers
-        String workingDir = System.getProperty("user.dir");
-        HashRing hashRing = new HashRing();
-        for (int i = 0; i < numberOfNodes; i++) {
-            ServerInfo currentServer = servers.get(i);
-            System.out.println("Servers: " + servers.get(i));
-            String command = String.format("bash nohup java -jar %s/ms3-server.jar %d %d %s &",
-                    workingDir, currentServer.address.getPort(), cacheSize, displacementStrategy.name());
-            System.out.println(command);
-            try {
-                executeSSH(currentServer.address, currentServer.userName, command);
-            } catch (IOException | InterruptedException e) {
-                e.printStackTrace();
-            }
+        // select n random servers
+        List<ServerInfo> candidates = new ArrayList<>(servers);
+        Collections.shuffle(candidates);
+        candidates = candidates.stream().limit(numberOfNodes).collect(Collectors.toList());
+        LOG.info("Initializing cluster with nodes: {}", candidates);
 
-            hashRing.addNode(currentServer.address);
-            KVAdminInterface adminClient = new DummyAdminClient(currentServer.address);
-            try {
-                adminClient.connect();
-            } catch (ClientException e) {
-                e.printStackTrace();
-            }
-            adminClients.put(currentServer.address, adminClient);
-        }
+        // initialize the servers
+        candidates.stream()
+                .map(serverInfo -> {
+                    Optional<KVAdminInterface> adminClient = Optional.empty();
+                    try {
+                        adminClient = Optional.of(initializeNode(serverInfo, cacheSize, displacementStrategy));
+                    } catch (IOException | InterruptedException | ClientException e) {
+                        LOG.error("Could not start node.", e);
+                    }
+                    return adminClient;
+                })
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .forEach(adminClient -> {
+                    adminClients.put(adminClient.getNodeAddress(), adminClient);
+                    hashRing.addNode(adminClient.getNodeAddress());
+                });
 
         // compose cluster metadata and send it to servers
-        List<NodeEntry> clusterState = new LinkedList<>();
-        for (InetSocketAddress server : hashRing.getNodes()) {
-            // TODO server name and key range do not need to be sent, remove at some point
-            clusterState.add(new NodeEntry("somename", server, new Range(0, 1)));
-        }
-        for (KVAdminInterface serverAdmin : adminClients.values()) {
-            try {
-                serverAdmin.updateMetadata(clusterState);
-            } catch (ClientException e) {
-                e.printStackTrace();
-            }
-        }
-
-        System.out.println("Active servers: " + adminClients.keySet());
+        Collection<NodeEntry> activeNodes = activeNodeEntries();
+        LOG.info("Updating cluster nodes with following membership information: {}", activeNodes);
+        adminClients.values().stream()
+                .forEach(adminClient -> {
+                    try {
+                        adminClient.updateMetadata(activeNodes);
+                    } catch (ClientException e) {
+                        LOG.error("Could not updated metadata on node " + adminClient.getNodeAddress(), e);
+                    }
+                });
     }
 
     @Override
     public void start() {
+        LOG.info("Starting the cluster");
         for (KVAdminInterface connection : adminClients.values()) {
             try {
                 connection.start();
             } catch (ClientException e) {
-                e.printStackTrace();
+                LOG.error("Could not start node " + connection.getNodeAddress(), e);
             }
         }
     }
 
     @Override
     public void stop() {
+        LOG.info("Stopping the cluster");
         for (KVAdminInterface connection : adminClients.values()) {
             try {
                 connection.stop();
             } catch (ClientException e) {
-                e.printStackTrace();
+                LOG.error("Could not stop node " + connection.getNodeAddress(), e);
             }
         }
     }
 
     @Override
     public void shutDown() {
-        // TODO: send a shutdown request to all active instances via KVAdminInterface
+        LOG.info("Shutting down the cluster");
         for (KVAdminInterface connection : adminClients.values()) {
             try {
                 connection.shutDown();
+                connection.disconnect();
             } catch (ClientException e) {
-                e.printStackTrace();
+                LOG.error("Could not shut down node " + connection.getNodeAddress(), e);
             }
         }
     }
 
     @Override
     public void addNode(int cacheSize, CacheReplacementStrategy displacementStrategy) {
-        // TODO: select a node randomly from the known but inactive servers - DONE
-        // TODO: start a server instance on the selected node via SSH - DONE
-        // TODO: use HashRing to get the successor - DONE
-        // TODO: the value range (x,z) of the successor will change, determine the new value range of the successor (y,z) and of the new node (x,y) - DONE
-        // TODO: enable the write lock on the SUCCESSOR node - DONE
-        // TODO: initiate data transfer for the key range of the new node from the successor to the new node - DONE
-        // TODO: after transfer completed, send updateMetadataRequest to ALL active nodes
+        // chose 1 random inactive node
+        List<ServerInfo> candidates = servers.stream()
+                .filter(serverInfo -> !adminClients.containsKey(serverInfo.address))
+                .collect(Collectors.toList());
 
-        Set<InetSocketAddress> allNodes = servers.stream()
-                .map(server -> server.address)
-                .collect(Collectors.toSet());
-        Set<InetSocketAddress> activeServers = adminClients.keySet();
-        Set<InetSocketAddress> candidateServers = new HashSet<>(allNodes);
-        candidateServers.removeAll(activeServers);
-
-        System.out.println(candidateServers);
-        String workingDir = System.getProperty("user.dir");
-
-        // final InetSocketAddress currentNode;
-
-        HashRing hashRing = new HashRing();
-        adminClients.keySet().forEach(hashRing::addNode);
-
-        candidateServers.stream().findFirst().ifPresent(candidateServer -> {
-            System.out.println("Adding server: " + candidateServer);
-            String command = String.format("bash nohup java -jar %s/ms3-server.jar %d %d %s &", workingDir, candidateServer.getPort(), cacheSize, displacementStrategy.name());
-            System.out.println("command: " + command);
-
-            // create client
-            KVAdminInterface admin = new DummyAdminClient(candidateServer);
-            adminClients.put(candidateServer, admin);
-
-            hashRing.addNode(candidateServer);
-            String remoteUser = servers.stream().filter(s -> s.address == candidateServer).findFirst().map(s -> s.userName).get();
-            try {
-                executeSSH(candidateServer, remoteUser, command);
-            } catch (InterruptedException | IOException e) {
-                e.printStackTrace();
-            }
-
-            InetSocketAddress successor = hashRing.getSuccessor(candidateServer);
-            Range assignedRange = hashRing.getAssignedRange(candidateServer);
-            lockWriteAndMoveData(successor, candidateServer, assignedRange);
-        });
-
-        List<NodeEntry> clusterState = new LinkedList<>();
-        for (InetSocketAddress server: hashRing.getNodes()) {
-            clusterState.add(new NodeEntry("testname", server, new Range(0,1)));
-        }
-        for (KVAdminInterface serverAdmin : adminClients.values()) {
-            try {
-                serverAdmin.updateMetadata(clusterState);
-            } catch (ClientException e) {
-                e.printStackTrace();
-            }
+        if (candidates.size() == 0) {
+            throw new RuntimeException("No more nodes to add.");
         }
 
-        System.out.println("Active servers: " + adminClients.keySet());
+        Collections.shuffle(candidates);
+        ServerInfo nodeToAdd = candidates.get(0);
+        LOG.info("Adding node to cluster: {}", nodeToAdd);
 
-    }
-
-    private void lockWriteAndMoveData(InetSocketAddress source, InetSocketAddress destination, Range keyRange) {
+        // set up the node
         try {
-            System.out.printf("Transferring data from %s to %s: %s\n", source, destination, keyRange);
-            KVAdminInterface sourceAdmin = adminClients.get(source);
-            sourceAdmin.enableWriteLock();
-
-            sourceAdmin.moveData(destination, keyRange);
-
-            MaintenanceStatusResponse status = sourceAdmin.getMaintenanceStatus();
-            while (status.isActive()) {
-                System.out.printf("Waiting for maintenance task %s on %s, progress %3d%%.\n", status.getTask(), source, status.getProgress());
-                break; // TODO remove once we have real status
-            }
-
-            sourceAdmin.disableWriteLock();
-        } catch (ClientException e) {
-            e.printStackTrace();
+            KVAdminInterface adminClient = initializeNode(nodeToAdd, cacheSize, displacementStrategy);
+            adminClient.start();
+            adminClients.put(adminClient.getNodeAddress(), adminClient);
+            hashRing.addNode(adminClient.getNodeAddress());
+        } catch (IOException | InterruptedException | ClientException e) {
+            throw new RuntimeException("Could not initialize node.", e);
         }
+
+        // transfer data from the successor to the new node
+        InetSocketAddress successor = hashRing.getSuccessor(nodeToAdd.address);
+        Range assignedRange = hashRing.getAssignedRange(nodeToAdd.address);
+        try {
+            KVAdminInterface successorAdmin = adminClients.get(successor);
+            successorAdmin.enableWriteLock();
+            moveDataAndWaitForCompletion(successor, nodeToAdd.address, assignedRange);
+            successorAdmin.disableWriteLock();
+        } catch (ClientException e) {
+            LOG.error("Could not transfer data to new node.", e);
+        }
+
+        // notify other nodes about the updated cluster
+        // this will also cause the successor of the new node to clean up the transferred data
+        Collection<NodeEntry> clusterNodes = activeNodeEntries();
+        LOG.info("Informing nodes about new cluster state: {}", clusterNodes);
+        adminClients.values().stream()
+                .forEach(adminClient -> {
+                    try {
+                        adminClient.updateMetadata(clusterNodes);
+                    } catch (ClientException e) {
+                        LOG.error("Could not updated metadata on node " + adminClient.getNodeAddress(), e);
+                    }
+                });
     }
 
     @Override
     public void removeNode() {
-        // TODO: randomly select one of the active nodes
-        // TODO: recalculate the value range of the successor node by adding the range of the node to be removed
-        // TODO: enable write lock on the server to be deleted
-        // TODO: initiate data transfer for the key range of the server to be deleted to it's successor
-        // TODO: after this is done, send a metadata update to ALL servers
-        // TODO: shut down the node to be removed
+        // randomly select 1 server to remove
+        List<InetSocketAddress> candidates = new ArrayList<>(adminClients.keySet());
+        Collections.shuffle(candidates);
 
-        // TODO display the number of running servers
-
-        Set<InetSocketAddress> allNodes = servers.stream()
-                .map(server -> server.address)
-                .collect(Collectors.toSet());
-        Set<InetSocketAddress> activeServers = adminClients.keySet();
-
-        HashRing hashRing = new HashRing();
-        adminClients.keySet().forEach(hashRing::addNode);
-
-        activeServers.stream().findAny().ifPresent(nodeToBeRemoved -> {
-            System.out.println("Removing server: " + nodeToBeRemoved);
-            InetSocketAddress successor = hashRing.getSuccessor(nodeToBeRemoved);
-            Range assignedRange = hashRing.getAssignedRange(nodeToBeRemoved);
-            hashRing.removeNode(nodeToBeRemoved);
-            lockWriteAndMoveData(nodeToBeRemoved, successor, assignedRange);
-
-            KVAdminInterface adminRemoved = adminClients.remove(nodeToBeRemoved);
-            try {
-                adminRemoved.shutDown();
-            } catch (ClientException e) {
-                e.printStackTrace();
-            }
-            adminRemoved.disconnect();
-        });
-
-        List<NodeEntry> clusterState = new LinkedList<>();
-        for(InetSocketAddress server: hashRing.getNodes()) {
-            clusterState.add(new NodeEntry("testname1", server, new Range(0,1)));
+        if (candidates.size() == 0) {
+            throw new RuntimeException("No active node to remove.");
         }
 
-        for (KVAdminInterface serverAdmin : adminClients.values()) {
-            try {
-                serverAdmin.updateMetadata(clusterState);
-            } catch (ClientException e) {
-                e.printStackTrace();
-            }
+        InetSocketAddress nodeToRemove = candidates.get(0);
+        KVAdminInterface candidateAdmin = adminClients.get(nodeToRemove);
+        LOG.info("Removing node from cluster: {}", nodeToRemove);
+
+        // transfer data from node to be removed to successor
+        InetSocketAddress successor = hashRing.getSuccessor(nodeToRemove);
+        Range assignedRange = hashRing.getAssignedRange(nodeToRemove);
+        try {
+            candidateAdmin.enableWriteLock();
+            moveDataAndWaitForCompletion(nodeToRemove, successor, assignedRange);
+            candidateAdmin.disableWriteLock();
+        } catch (ClientException e) {
+            // break and let the admin fix it
+            throw new RuntimeException("Could not transfer data from removed node.", e);
         }
 
-        System.out.println("Active servers: " + adminClients.keySet());
+        // shutdown the node
+        try {
+            candidateAdmin.shutDown();
+        } catch (ClientException e) {
+            LOG.error("Could not shutdown node: " + nodeToRemove, e);
+        }
+        adminClients.remove(nodeToRemove);
+        hashRing.removeNode(nodeToRemove);
 
+        // notify other nodes about the updated cluster
+        Collection<NodeEntry> clusterNodes = activeNodeEntries();
+        LOG.info("Informing nodes about new cluster state: {}", clusterNodes);
+        adminClients.values().stream()
+                .forEach(adminClient -> {
+                    try {
+                        adminClient.updateMetadata(clusterNodes);
+                    } catch (ClientException e) {
+                        LOG.error("Could not updated metadata on node " + adminClient.getNodeAddress(), e);
+                    }
+                });
     }
 
-    private void executeSSH(InetSocketAddress remoteServer, String remoteUser, String command) throws IOException, InterruptedException {
+    private Collection<NodeEntry> activeNodeEntries() {
+        return servers.stream()
+                .filter(serverInfo -> adminClients.containsKey(serverInfo.address))
+                .map(serverInfo -> new NodeEntry(serverInfo.name, serverInfo.address,
+                        hashRing.getAssignedRange(serverInfo.address)))
+                .collect(Collectors.toList());
+    }
+
+    private void moveDataAndWaitForCompletion(InetSocketAddress source, InetSocketAddress destination, Range keyRange)
+            throws ClientException {
+        KVAdminInterface sourceAdmin = adminClients.get(source);
+
+        LOG.info("Moving data with keys in range {} from {} to {}", keyRange, source, destination);
+        sourceAdmin.moveData(destination, keyRange);
+
+        // TODO: add a timeout?
+        MaintenanceStatusResponse status = sourceAdmin.getMaintenanceStatus();
+        while (status.isActive()) {
+            LOG.info("Waiting for completion of {} on node {}. Progress: {}%", status.getTask(), source,
+                    status.getProgress());
+            status = sourceAdmin.getMaintenanceStatus();
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                LOG.error("Could not wait in progress polling.", e);
+            }
+        }
+    }
+
+    private static KVAdminInterface initializeNode(ServerInfo serverInfo,
+                                                   int cacheSize,
+                                                   CacheReplacementStrategy displacementStrategy)
+            throws IOException, InterruptedException, ClientException {
+        // FIXME for now we assume this directory is the same for all nodes
+        File workingDir = new File(System.getProperty("user.dir"));
+
+        String command = String.format("bash -c 'cd %s && bash ./kv_daemon.sh %d %d %s'",
+                workingDir, serverInfo.address.getPort(), cacheSize, displacementStrategy.name());
+
+        executeSSH(serverInfo.address, serverInfo.userName, command);
+
+        KVAdminInterface adminClient = new client.KVAdmin(serverInfo.address);
+        adminClient.connect();
+        return adminClient;
+    }
+
+    private static void executeSSH(InetSocketAddress remoteServer, String remoteUser, String command)
+            throws IOException, InterruptedException {
         String[] cmd = new String[] {
                 "ssh",
                 String.format("%s@%s", remoteUser, remoteServer.getHostString()),
@@ -286,19 +299,23 @@ public class DefaultKVAdmin implements KVAdmin {
         if (exitCode != 0) {
             throw new RuntimeException("Process exited with error code: " + exitCode);
         }
-        // TODO catch exceptions here and check the error code for success
     }
 
-    public static void main(String[] args)  {
+    public static void main(String[] args) throws IOException, InterruptedException {
         DefaultKVAdmin kvadmin = new DefaultKVAdmin(Arrays.asList(
-                new ServerInfo("node1", "xhens", new InetSocketAddress("localhost", 50000)),
-                new ServerInfo("node2", "xhens", new InetSocketAddress("localhost", 50001)),
-                new ServerInfo("node3", "xhens", new InetSocketAddress("localhost", 50002)),
-                new ServerInfo("node4", "xhens", new InetSocketAddress("localhost", 50003)),
-                new ServerInfo("node4", "xhens", new InetSocketAddress("localhost", 50004))
+                new ServerInfo("node1", "jeff", new InetSocketAddress("localhost", 50000)),
+                new ServerInfo("node2", "jeff", new InetSocketAddress("localhost", 50001)),
+                new ServerInfo("node3", "jeff", new InetSocketAddress("localhost", 50002)),
+                new ServerInfo("node4", "jeff", new InetSocketAddress("localhost", 50003)),
+                new ServerInfo("node5", "jeff", new InetSocketAddress("localhost", 50004))
         ));
-        kvadmin.initService(1, 45, CacheReplacementStrategy.LRU);
+        kvadmin.initService(2, 45, CacheReplacementStrategy.LRU);
+        kvadmin.start();
+        Thread.sleep(30000);
         kvadmin.addNode(25, CacheReplacementStrategy.FIFO);
+        Thread.sleep(60000);
         kvadmin.removeNode();
+        Thread.sleep(30000);
+        kvadmin.shutDown();
     }
 }
