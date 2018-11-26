@@ -1,20 +1,17 @@
 package app_kvEcs;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 import app_kvServer.CacheReplacementStrategy;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /**
  * External Configuration Service (ECS)
  */
 public class ECSClient {
-
-    private static final Logger LOG = LogManager.getLogger(ECSClient.class);
 
     private static final String initCommand = "init";
     private static final String startCommand = "start";
@@ -29,7 +26,8 @@ public class ECSClient {
             "stop" + " - stop the cluster" + "\n" +
             "shutDown" + " - shut down the cluster " + "\n" +
             "removeNode" + " - remove a node form the cluster" + "\n" +
-            "addNode" + " <cacheSize> <cacheStrategy>";
+            "addNode" + " <cacheSize> <cacheStrategy>" + "\n" +
+            "exit - exit ECS";
 
     /**
      * Start the REPL.
@@ -38,7 +36,16 @@ public class ECSClient {
      */
 
     public static void main(String[] args) throws IOException {
-        DefaultKVAdmin kvAdmin = new DefaultKVAdmin();
+        // read the config
+        String workingDir = System.getProperty("user.dir");
+        File configFilePath = new File(workingDir + "/ecs.config");
+        if (!configFilePath.isFile()) {
+            System.err.println("Need a ecs.config file in the working directory.");
+        }
+        Collection<DefaultKVAdmin.ServerInfo> servers = readEcsConfig(configFilePath);
+        System.out.println("Available nodes: " + servers);
+
+        DefaultKVAdmin kvAdmin = new DefaultKVAdmin(servers);
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
         System.out.println(helpCommand);
 
@@ -83,6 +90,39 @@ public class ECSClient {
             }
         }
 
+    }
+
+    private static Collection<DefaultKVAdmin.ServerInfo> readEcsConfig(File path) {
+        DefaultKVAdmin.ServerInfo serverInfo;
+        List<DefaultKVAdmin.ServerInfo> servers =new ArrayList<>();
+
+        try {
+            BufferedReader bufferedReader = new BufferedReader(new FileReader(path));
+            String line;
+
+            while((line = bufferedReader.readLine()) != null) {
+                // skip comments
+                if (line.startsWith("#")) {
+                    continue;
+                }
+
+                String[] parts = line.split(" ");
+
+                String name = parts[0];
+                String userName = parts[1];
+                String host = parts[2];
+                int port = Integer.parseInt(parts[3]);
+                InetSocketAddress address = new InetSocketAddress(host, port);
+
+                serverInfo = new DefaultKVAdmin.ServerInfo(name, userName, address);
+                servers.add(serverInfo);
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return servers;
     }
 
 }
