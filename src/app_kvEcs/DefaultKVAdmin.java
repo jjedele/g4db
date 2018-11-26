@@ -10,7 +10,9 @@ import common.messages.admin.MaintenanceStatusResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.*;
@@ -59,14 +61,49 @@ public class DefaultKVAdmin implements KVAdmin {
     private final Map<InetSocketAddress, KVAdminInterface> adminClients;
     private final HashRing hashRing;
 
+    public DefaultKVAdmin() {
+        this.servers = new ArrayList<>();
+        this.adminClients = new HashMap<>();
+        this.hashRing = new HashRing();
+    }
+
     public DefaultKVAdmin(Collection<ServerInfo> servers) {
         this.servers = new ArrayList<>(servers);
         this.adminClients = new HashMap<>();
         this.hashRing = new HashRing();
     }
 
+    private void ecsConfig() {
+        String workingDir = System.getProperty("user.dir");
+        File ecsConfig = new File(workingDir + "/ecs.config");
+        ServerInfo serverInfo;
+
+        try {
+            BufferedReader bufferedReader = new BufferedReader(new FileReader(ecsConfig));
+            String line;
+
+            while((line = bufferedReader.readLine()) != null) {
+                System.out.println(line);
+                String[] parts = line.split(" ");
+
+                String name = parts[1];
+                String userName = parts[1];
+                String host = parts[2];
+                int port = Integer.parseInt(parts[3]);
+                InetSocketAddress address = new InetSocketAddress(host, port);
+
+                serverInfo = new ServerInfo(name, userName, address);
+                servers.add(serverInfo);
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     public void initService(int numberOfNodes, int cacheSize, CacheReplacementStrategy displacementStrategy) {
+        ecsConfig();
         // select n random servers
         List<ServerInfo> candidates = new ArrayList<>(servers);
         Collections.shuffle(candidates);
@@ -276,7 +313,7 @@ public class DefaultKVAdmin implements KVAdmin {
         // FIXME for now we assume this directory is the same for all nodes
         File workingDir = new File(System.getProperty("user.dir"));
 
-        String command = String.format("bash -c 'cd %s && bash ./kv_daemon.sh %d %d %s'",
+        String command = String.format("cd %s && bash ./kv_daemon.sh %d %d %s",
                 workingDir, serverInfo.address.getPort(), cacheSize, displacementStrategy.name());
 
         executeSSH(serverInfo.address, serverInfo.userName, command);
@@ -293,6 +330,7 @@ public class DefaultKVAdmin implements KVAdmin {
                 String.format("%s@%s", remoteUser, remoteServer.getHostString()),
                 command
         };
+        System.out.println(Arrays.toString(cmd));
         Runtime runtime = Runtime.getRuntime();
         Process process = runtime.exec(cmd);
         int exitCode = process.waitFor();
@@ -302,13 +340,7 @@ public class DefaultKVAdmin implements KVAdmin {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        DefaultKVAdmin kvadmin = new DefaultKVAdmin(Arrays.asList(
-                new ServerInfo("node1", "jeff", new InetSocketAddress("localhost", 50000)),
-                new ServerInfo("node2", "jeff", new InetSocketAddress("localhost", 50001)),
-                new ServerInfo("node3", "jeff", new InetSocketAddress("localhost", 50002)),
-                new ServerInfo("node4", "jeff", new InetSocketAddress("localhost", 50003)),
-                new ServerInfo("node5", "jeff", new InetSocketAddress("localhost", 50004))
-        ));
+        DefaultKVAdmin kvadmin = new DefaultKVAdmin();
         kvadmin.initService(2, 45, CacheReplacementStrategy.LRU);
         kvadmin.start();
         Thread.sleep(30000);

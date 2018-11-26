@@ -88,20 +88,6 @@ public class ECSClient implements KVAdmin {
         return exiting;
     }
 
-    /*
-    public Optional parseInput(final String input) {
-        String[] parts = KVClient(input);
-        String name = parts[0];
-        String[] arguments = Arrays.copyOfRange(parts, 1, parts.length);
-
-        if (!this.commands.containsKey(name)) {
-            System.out.println("No such command");
-            return Optional.empty();
-        }
-        return Optional.of(arguments);
-    }
-    */
-
     // TODO add isConnected after everything is done
     /*
     public String getPrompt() {
@@ -127,21 +113,27 @@ public class ECSClient implements KVAdmin {
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
 
         while (!client.isExiting()) {
+            System.out.print("ECS Client> ");
             String input = reader.readLine();
-            System.out.println(input);
             if (input != null && input.length() > 0) {
                 try {
                     if (input.contains("init")) {
-                        client.initService(4, 50, CacheReplacementStrategy.FIFO);
+                        String [] result = input.split(" ");
+
+                        int nrOfNodes = Integer.parseInt(result[1]);
+                        int cacheSize = Integer.parseInt(result[2]);
+                        CacheReplacementStrategy cacheReplacementStrategy = CacheReplacementStrategy.valueOf(result[3]);
+
+                        client.initService(nrOfNodes, cacheSize, cacheReplacementStrategy);
                     } else if (input.contains("start")) {
                         client.start();
                     } else if (input.contains("stop")) {
                         client.stop();
-                    } else if (input.contains("shutdown")) {
+                    } else if (input.contains("shutDown")) {
                         client.shutDown();
-                    } else if (input.contains("remove node")) {
+                    } else if (input.contains("removeNode")) {
                         client.removeNode();
-                    } else if (input.contains("add node")) {
+                    } else if (input.contains("addNode")) {
                         String[] result = input.split(" ");
 
                         String arg2 = result[2];
@@ -151,6 +143,8 @@ public class ECSClient implements KVAdmin {
                         CacheReplacementStrategy displacementStrategy = CacheReplacementStrategy.valueOf(arg3);
 
                         client.addNode(cacheSize, displacementStrategy);
+                    } else if (input.contains("help")) {
+                        System.out.println("Commands: start, stop, shutDown, removeNode, addNode");
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -158,54 +152,6 @@ public class ECSClient implements KVAdmin {
             }
         }
 
-        /*
-        Scanner scanner = new Scanner(System.in).useDelimiter("\n");
-        while (true) {
-            System.out.println("Admin> ");
-            String input = scanner.next();
-
-            String[] parts = input.split(" ");
-
-            if ("initCluster".equals(parts[0])) {
-                int numberOfNodes = Integer.parseInt(parts[1]);
-                int cacheSize = Integer.parseInt(parts[2]);
-                CacheReplacementStrategy cacheReplacementStrategy = CacheReplacementStrategy.valueOf(parts[3]);
-                kvAdmin.initService(numberOfNodes, cacheSize, cacheReplacementStrategy);
-                System.out.println("Initializing the cluster.");
-            }
-
-            if ("start".equals(parts[0])) {
-                kvAdmin.start();
-            }
-
-            if ("stop".equals(parts[0])) {
-                kvAdmin.stop();
-
-            }
-
-            if ("shutDown()".equals(parts[0])) {
-                kvAdmin.shutDown();
-
-            }
-            if ("addNode()".equals(parts[0])) {
-                int cacheSize = Integer.parseInt(parts[1]);
-                CacheReplacementStrategy displacementStrategy = CacheReplacementStrategy.valueOf(parts[2]);
-                kvAdmin.addNode(cacheSize, displacementStrategy);
-            }
-
-            if ("removeNode()".equals(parts[0])) {
-                kvAdmin.removeNode();
-            }
-
-
-            /*
-            KVAdminInterface adminClient = new client.KVAdmin(new InetSocketAddress("localhost", 50000));
-            adminClient.connect();
-
-            adminClient.shutDown();
-
-            adminClient.disconnect();
-            */
     }
 
 }
