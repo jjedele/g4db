@@ -113,6 +113,10 @@ public class KVStore implements KVCommInterface {
     }
 
     private KVMessage sendAndGetReply(KVMessage msg) throws ClientException {
+        if (hashRing.isEmpty()) {
+            throw new ClientException("No more known server nodes to try.");
+        }
+
         try {
             CompletableFuture<KVMessage> futureReply = communicationModuleForKey(msg.getKey())
                     .send(msg)
@@ -130,9 +134,6 @@ public class KVStore implements KVCommInterface {
             } else {
                 // server has been stopped
                 // redirect the request to the successor node as heuristic
-                if (hashRing.isEmpty()) {
-                    throw new ClientException("No more nodes to try.");
-                }
                 InetSocketAddress staleNode = hashRing.getResponsibleNode(msg.getKey());
                 InetSocketAddress successor = hashRing.getSuccessor(staleNode);
                 LOG.info("Detected stale node {}. Retrying on successor {}.", staleNode, successor);
