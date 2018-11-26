@@ -49,8 +49,13 @@ public class MoveDataTask implements AdminTask {
 
     @Override
     public float getProgress() {
-        int divider = keysToTransfer != null ? keysToTransfer.size() : 1;
-        return (float) counter.get() / divider;
+        if (keysToTransfer != null && keysToTransfer.size() == 0) {
+            // no work
+            return 1;
+        } else {
+            int divider = keysToTransfer != null ? keysToTransfer.size() : 1;
+            return (float) counter.get() / divider;
+        }
     }
 
     @Override
@@ -65,6 +70,7 @@ public class MoveDataTask implements AdminTask {
                     .filter(key -> keyRange.contains(HashRing.hash(key)))
                     .collect(Collectors.toList());
             this.keysToTransfer = Collections.unmodifiableList(keysToTransfer);
+            LOG.info("Starting transfer of {} entries to {}", keysToTransfer.size(), destination);
 
             List<CompletableFuture<KVMessage>> transfers = keysToTransfer.stream()
                     // create a PUT request for the entry
@@ -99,6 +105,7 @@ public class MoveDataTask implements AdminTask {
             // wait until the whole transfer completed
             CompletableFuture<Void> overallTransfer = CompletableFuture.allOf(transfers.toArray(new CompletableFuture[] {}));
             overallTransfer.get();
+            LOG.info("Finished transfer of {} entries to {}", keysToTransfer.size(), destination);
         } catch (PersistenceException | InterruptedException | ExecutionException | ClientException e) {
             LOG.error("Could not transfer values.", e);
         } finally {

@@ -22,10 +22,10 @@ public class RangeTest extends TestCase {
         assertFalse(range.contains(Integer.MAX_VALUE - 42));
     }
 
-    public void testEmptyRange() {
+    public void testTotalRange() {
         Range range = new Range(42, 42);
 
-        assertFalse(range.contains(42));
+        assertTrue(range.contains(42));
     }
 
 }
