@@ -1,6 +1,5 @@
 package app_kvServer;
 
-import app_kvServer.admin.AdminTask;
 import app_kvServer.admin.AdminTasks;
 import app_kvServer.admin.CleanUpDataTask;
 import app_kvServer.admin.MoveDataTask;
@@ -16,6 +15,7 @@ import common.messages.ExceptionMessage;
 import common.messages.KVMessage;
 import common.messages.Message;
 import common.messages.admin.*;
+import common.utils.ContextPreservingThread;
 import common.utils.RecordReader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -28,13 +28,12 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * A ClientConnection represents an active session with a client application.
  */
-public class ClientConnection implements Runnable {
+public class ClientConnection extends ContextPreservingThread {
 
     private static final Logger LOG = LogManager.getLogger(ClientConnection.class);
 
@@ -72,6 +71,7 @@ public class ClientConnection implements Runnable {
      */
     @Override
     public void run() {
+        this.setUpThreadContext();
         try {
             // TODO handle errors more gracefully
             this.running.set(true);

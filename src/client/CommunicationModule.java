@@ -6,6 +6,7 @@ import common.CorrelatedMessage;
 import common.Protocol;
 import common.exceptions.ProtocolException;
 import common.messages.Message;
+import common.utils.ContextPreservingThread;
 import common.utils.RecordReader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -126,7 +127,7 @@ public class CommunicationModule {
     }
 
     // takes messages out of the sending queue and sends them
-    private class WriterThread extends Thread {
+    private class WriterThread extends ContextPreservingThread {
 
         private final OutputStream outputStream;
 
@@ -136,6 +137,7 @@ public class CommunicationModule {
 
         @Override
         public void run() {
+            this.setUpThreadContext();
             try {
                 while (!terminated.get() && !restarting.get()) {
                     AcceptedMessage msg = outstandingRequests.pollFirst(100, TimeUnit.MILLISECONDS);
@@ -171,7 +173,7 @@ public class CommunicationModule {
     }
 
     // reads from the incoming stream and resolves given promises about replies
-    private class ReaderThread extends Thread {
+    private class ReaderThread extends ContextPreservingThread {
 
         private final InputStream inputStream;
         private final RecordReader recordReader;
@@ -183,6 +185,7 @@ public class CommunicationModule {
 
         @Override
         public void run() {
+            this.setUpThreadContext();
             try {
                 while (!terminated.get() && !restarting.get()) {
                     byte[] payload = recordReader.read();

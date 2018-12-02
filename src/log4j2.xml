@@ -2,24 +2,44 @@
 <Configuration status="WARN">
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{DEFAULT} [%t] %-5level %logger{36} %l - %msg%n"/>
+            <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %logger{18} %l - %msg%n"/>
         </Console>
         <File name="CloudDB" filename="logs/client.log">
-            <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %logger{36} %l - %msg%n"/>
+            <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %logger{18} %l - %msg%n"/>
         </File>
         <File name="kvServer" filename="logs/server.log">
-            <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %logger{36} %l - %msg%n"/>
+            <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %logger{18} %l - %msg%n"/>
         </File>
         <File name="tests" filename="logs/tests.log">
-            <PatternLayout pattern="%d{DEFAULT} [%t] %-5level %logger{36} %l - %msg%n"/>
+            <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %logger{18} %l - %msg%n"/>
         </File>
+        <Routing name="Routing">
+            <Routes pattern="$${ctx:serverPort}">
+
+                <!-- This route is chosen if ThreadContext has no value for key ROUTINGKEY. -->
+                <Route key="$${ctx:serverPort}">
+                    <File name="server-default" filename="logs/default.log">
+                        <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %l - %msg%n"/>
+                    </File>
+                </Route>
+
+                <!-- This route is chosen if ThreadContext has a value for ROUTINGKEY
+                     (other than the value 'special' which had its own route above).
+                     The value dynamically determines the name of the log file. -->
+                <Route>
+                    <File name="server-${ctx:serverPort}" filename="logs/server_${ctx:serverPort}.log">
+                        <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %l - %msg%n"/>
+                    </File>
+                </Route>
+            </Routes>
+        </Routing>
     </Appenders>
     <Loggers>
         <Root level="info">
             <!--<AppenderRef ref="Console"/>-->
-            <AppenderRef ref="CloudDB" />
+            <AppenderRef ref="Routing" />
         </Root>
-        <Logger name="app_kvServer" level="info" additivity="false">
+        <!--Logger name="app_kvServer" level="info" additivity="false">
             <AppenderRef ref="Console" />
             <appender-ref ref="kvServer" />
         </Logger>
@@ -30,6 +50,6 @@
         <Logger name="tests" level="all" additivity="false">
             <AppenderRef ref="Console" />
             <appender-ref ref="tests" />
-        </Logger>
+        </Logger-->
     </Loggers>
 </Configuration>

@@ -46,6 +46,7 @@ public class KVServer implements Runnable, SessionRegistry {
         CacheReplacementStrategy strategy = CacheReplacementStrategy.FIFO;
 
         // make log4j inherit thread contexts from parent thread because we use a lot of workers
+        System.setProperty("isThreadContextMapInheritable", "true");
         System.setProperty("log4j2.isThreadContextMapInheritable", "true");
 
         if (args.length >= 1) {
@@ -107,7 +108,6 @@ public class KVServer implements Runnable, SessionRegistry {
     @Override
     public void run() {
         LOG.info("Binding to {}", serverState.getMyself());
-        System.setProperty("log4j2.isThreadContextMapInheritable", "true");
         ThreadContext.put("serverPort", Integer.toString(port));
 
         // try to register server state as MBean
@@ -139,7 +139,7 @@ public class KVServer implements Runnable, SessionRegistry {
                         this,
                         serverState);
 
-                new Thread(clientConnection).start();
+                clientConnection.start();
             }
         } catch (IOException e) {
             LOG.error("Error while accepting connections.", e);
