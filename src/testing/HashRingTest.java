@@ -58,6 +58,24 @@ public class HashRingTest extends TestCase {
         assertEquals(getSuccessorNode, node2);
 
     }
+
+    public void testGetNthSuccessor() {
+        HashRing hashRing = new TestHashRing();
+
+        InetSocketAddress node1 = new InetSocketAddress("localhost", 100);
+        InetSocketAddress node2 = new InetSocketAddress("localhost", 5);
+        InetSocketAddress node3 = new InetSocketAddress("localhost", 8);
+        InetSocketAddress node4 = new InetSocketAddress("localhost", 11);
+        hashRing.addNode(node1);
+        hashRing.addNode(node2);
+        hashRing.addNode(node3);
+        hashRing.addNode(node4);
+
+        InetSocketAddress getNthSuccessorNode = hashRing.getNthSuccessor(node4, 2);
+
+        assertEquals(getNthSuccessorNode, node2);
+    }
+
     public void testGetAssignedRange(){
         HashRing hashRing = new TestHashRing();
 

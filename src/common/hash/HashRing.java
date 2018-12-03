@@ -99,6 +99,24 @@ public class HashRing {
     }
 
     /**
+     * Return nth node after the given one if it will be added
+     * n == 1 -> first successor (same as using getSuccessor())
+     * n == 2 -> second successor
+     * @param node The node that will be added
+     * @param positions number of positions
+     * @return nth successor node on the ring
+     */
+    public InetSocketAddress getNthSuccessor(InetSocketAddress node, int positions) {
+        int nodeKey = getHash(addressToString(node));
+        if (positions==1) {
+            return circle.higherEntry(nodeKey).getValue();
+        }
+        int pos = circle.headMap(nodeKey).size();
+        int desiredPosition = pos - positions + 1 ;
+        return circle.higherEntry(desiredPosition).getValue();
+    }
+
+    /**
      * Return if the hash ring contains given node.
      * @param node Node
      * @return True if contained
