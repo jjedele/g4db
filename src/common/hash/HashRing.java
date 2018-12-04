@@ -107,13 +107,16 @@ public class HashRing {
      * @return nth successor node on the ring
      */
     public InetSocketAddress getNthSuccessor(InetSocketAddress node, int positions) {
-        int nodeKey = getHash(addressToString(node));
-        if (positions==1) {
-            return circle.higherEntry(nodeKey).getValue();
+        InetSocketAddress successor = node;
+        for (int i = 0; i < positions; i++) {
+            int currentKey = getHash(addressToString(successor));
+
+            successor = Optional
+                    .ofNullable(circle.higherEntry(currentKey))
+                    .orElse(circle.firstEntry())
+                    .getValue();
         }
-        int pos = circle.headMap(nodeKey).size();
-        int desiredPosition = pos - positions + 1 ;
-        return circle.higherEntry(desiredPosition).getValue();
+        return successor;
     }
 
     /**
