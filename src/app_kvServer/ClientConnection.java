@@ -3,6 +3,7 @@ package app_kvServer;
 import app_kvServer.admin.AdminTasks;
 import app_kvServer.admin.CleanUpDataTask;
 import app_kvServer.admin.MoveDataTask;
+import app_kvServer.gossip.Gossiper;
 import app_kvServer.persistence.PersistenceException;
 import app_kvServer.persistence.PersistenceService;
 import common.CorrelatedMessage;
@@ -15,6 +16,7 @@ import common.messages.ExceptionMessage;
 import common.messages.KVMessage;
 import common.messages.Message;
 import common.messages.admin.*;
+import common.messages.gossip.ClusterDigest;
 import common.utils.ContextPreservingThread;
 import common.utils.RecordReader;
 import org.apache.logging.log4j.LogManager;
@@ -142,6 +144,8 @@ public class ClientConnection extends ContextPreservingThread {
             return handleIncomingKVRequest(request.getKVMessage());
         } else if (request.hasAdminMessage()) {
             return handleAdminMessage(request.getAdminMessage());
+        } else if (request.hasGossipMessage()) {
+            return Gossiper.getInstance().handleIncomingDigest((ClusterDigest) request.getGossipMessage());
         } else {
             throw new ProtocolException("Unsupported request: " + request);
         }

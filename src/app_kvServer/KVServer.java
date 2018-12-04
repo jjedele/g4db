@@ -1,8 +1,11 @@
 package app_kvServer;
 
 
+import app_kvServer.gossip.GossipEventListener;
+import app_kvServer.gossip.Gossiper;
 import app_kvServer.persistence.CachedDiskStorage;
 import app_kvServer.persistence.PersistenceService;
+import common.messages.gossip.ClusterDigest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
@@ -19,7 +22,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class KVServer implements Runnable, SessionRegistry {
+public class KVServer implements Runnable, SessionRegistry, GossipEventListener {
 
     private static final Logger LOG = LogManager.getLogger(KVServer.class);
 
@@ -110,6 +113,9 @@ public class KVServer implements Runnable, SessionRegistry {
         LOG.info("Binding to {}", serverState.getMyself());
         ThreadContext.put("serverPort", Integer.toString(port));
 
+        Gossiper.initialize(serverState.getMyself());
+        Gossiper.getInstance().addListener(this);
+
         // try to register server state as MBean
         try {
             MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
@@ -158,6 +164,8 @@ public class KVServer implements Runnable, SessionRegistry {
             session.terminate();
         }
 
+        Gossiper.getInstance().stop();
+
         cleanSocketShutdown();
     }
 
@@ -194,6 +202,11 @@ public class KVServer implements Runnable, SessionRegistry {
                 LOG.error("Error closing connection.", e);
             }
         }
+    }
+
+    @Override
+    public void clusterChanged(ClusterDigest clusterDigest) {
+        LOG.info("Cluster changed: {}", clusterDigest);
     }
 
 }

@@ -7,6 +7,10 @@ import common.messages.ExceptionMessage;
 import common.messages.KVMessage;
 import common.messages.Message;
 import common.messages.admin.*;
+import common.messages.gossip.ServerState;
+import common.messages.gossip.ClusterDigest;
+import common.messages.gossip.GossipMessage;
+
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -22,6 +26,8 @@ public final class Protocol {
     }
 
     private static final char UNIT_SEPARATOR = 0x1f;
+    public static final byte RECORD_SEPARATOR = 0x1e;
+    public static final char GROUP_SEPARATOR = 0x1d;
     public static final byte[] SHUTDOWN_CMD = new byte[] {0x0, 0x42, 0x0};
 
     private static final Map<Byte, KVMessage.StatusType> STATUS_BY_OPCODE;
@@ -53,6 +59,8 @@ public final class Protocol {
             encodeAdminMessage(sb, (AdminMessage) msg);
         } else if (msg instanceof ExceptionMessage) {
             encodeExceptionMessage(sb, (ExceptionMessage) msg);
+        } else if (msg instanceof GossipMessage) {
+            encodeGossipMessage(sb, (GossipMessage) msg);
         } else {
             throw new AssertionError("Unsupported message class: " + msg.getClass());
         }
@@ -89,6 +97,10 @@ public final class Protocol {
             } else if (contentType == ContentType.ADMIN) {
                 AdminMessage adminMessage = decodeAdminMessage(scanner);
                 return new CorrelatedMessage(correlationNumber, adminMessage);
+
+            } else if (contentType == ContentType.GOSSIP) {
+                GossipMessage gossipMessage = decodeGossipMessage(scanner);
+                return new CorrelatedMessage(correlationNumber, gossipMessage);
 
             } else {
                 throw new ProtocolException("Unsupported content type: " + contentType);
@@ -164,6 +176,27 @@ public final class Protocol {
         } else {
             throw new AssertionError("Unsupported AdminMessage: " + msg.getClass());
         }
+    }
+
+    private static void encodeGossipMessage(StringBuilder sb, GossipMessage msg) {
+        sb.append(ContentType.GOSSIP);
+        sb.append(UNIT_SEPARATOR);
+
+        // only cluster digests for now
+        ClusterDigest digest = (ClusterDigest) msg;
+        StringJoiner digestJoiner = new StringJoiner("\n");
+        for (Map.Entry<InetSocketAddress, ServerState> e : digest.getCluster().entrySet()) {
+            StringJoiner recordJoiner = new StringJoiner(":");
+            recordJoiner.add(e.getKey().getHostString());
+            recordJoiner.add(Integer.toString(e.getKey().getPort()));
+            recordJoiner.add(Long.toString(e.getValue().getGeneration()));
+            recordJoiner.add(Long.toString(e.getValue().getHeartBeat()));
+            recordJoiner.add(e.getValue().getStatus().name());
+            recordJoiner.add(Long.toString(e.getValue().getStateVersion()));
+
+            digestJoiner.add(recordJoiner.toString());
+        }
+        sb.append(digestJoiner.toString());
     }
 
     private static void encodeSimpleAdminMessage(StringBuilder sb, byte typeCode) {
@@ -289,6 +322,26 @@ public final class Protocol {
         } else {
             throw new ProtocolException("Unknown admin message type: " + type);
         }
+    }
+
+    private static GossipMessage decodeGossipMessage(Scanner scanner) {
+        // only ClusterDigests for now
+        String encoded = scanner.next();
+        Map<InetSocketAddress, ServerState> cluster = new HashMap<>();
+
+        Arrays.stream(encoded.split("\n")).forEach(nodeStr -> {
+            String[] parts = nodeStr.split(":");
+            String host = parts[0];
+            int port = Integer.parseInt(parts[1]);
+            long generation = Long.parseLong(parts[2]);
+            long heartBeat = Long.parseLong(parts[3]);
+            ServerState.Status state = ServerState.Status.valueOf(parts[4]);
+            long stateVersion = Long.parseLong(parts[5]);
+
+            cluster.put(new InetSocketAddress(host, port), new ServerState(generation, heartBeat, state, stateVersion));
+        });
+
+        return new ClusterDigest(cluster);
     }
 
     /**

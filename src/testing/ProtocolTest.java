@@ -3,19 +3,17 @@ package testing;
 import common.CorrelatedMessage;
 import common.Protocol;
 import common.exceptions.ProtocolException;
-import common.hash.NodeEntry;
 import common.hash.Range;
 import common.messages.DefaultKVMessage;
 import common.messages.ExceptionMessage;
 import common.messages.KVMessage;
 import common.messages.admin.*;
+import common.messages.gossip.ServerState;
+import common.messages.gossip.ClusterDigest;
 import junit.framework.TestCase;
 
 import java.net.InetSocketAddress;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class ProtocolTest extends TestCase {
 
@@ -190,6 +188,25 @@ public class ProtocolTest extends TestCase {
         assertEquals(response.isActive(), decodedResponse.isActive());
         assertEquals(response.getTask(), decodedResponse.getTask());
         assertEquals(response.getProgress(), decodedResponse.getProgress());
+    }
+
+    public void testEncodeDecodeGossipMessage() throws ProtocolException {
+        long correlation = 1;
+
+        Map<InetSocketAddress, ServerState> cluster = new HashMap<>();
+        cluster.put(new InetSocketAddress("localhost", 50000),
+                new ServerState(1, 1, ServerState.Status.OK, 1));
+        cluster.put(new InetSocketAddress("localhost", 50001),
+                new ServerState(2, 2, ServerState.Status.JOINING, 2));
+
+        byte[] encoded = Protocol.encode(new ClusterDigest(cluster), correlation);
+        CorrelatedMessage decoded = Protocol.decode(encoded);
+
+        assertEquals(correlation, decoded.getCorrelationNumber());
+        assertTrue(decoded.hasGossipMessage());
+        assertTrue(decoded.getGossipMessage() instanceof ClusterDigest);
+        ClusterDigest decodedDigest = (ClusterDigest) decoded.getGossipMessage();
+        assertEquals(cluster, decodedDigest.getCluster());
     }
 
 }

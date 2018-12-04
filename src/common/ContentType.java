@@ -20,4 +20,9 @@ public final class ContentType {
      */
     public static final byte ADMIN = 0x02;
 
+    /**
+     * Server-server gossip communication.
+     */
+    public static final byte GOSSIP = 0x03;
+
 }
