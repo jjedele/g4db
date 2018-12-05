@@ -3,6 +3,7 @@ package app_kvServer;
 import app_kvServer.admin.AdminTasks;
 import app_kvServer.admin.CleanUpDataTask;
 import app_kvServer.admin.MoveDataTask;
+import app_kvServer.gossip.Gossiper;
 import app_kvServer.persistence.PersistenceException;
 import app_kvServer.persistence.PersistenceService;
 import common.CorrelatedMessage;
@@ -15,6 +16,7 @@ import common.messages.ExceptionMessage;
 import common.messages.KVMessage;
 import common.messages.Message;
 import common.messages.admin.*;
+import common.messages.gossip.ClusterDigest;
 import common.utils.ContextPreservingThread;
 import common.utils.RecordReader;
 import org.apache.logging.log4j.LogManager;
@@ -26,6 +28,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -82,13 +85,13 @@ public class ClientConnection extends ContextPreservingThread {
             RecordReader recordReader = new RecordReader(inputStream, RECORD_SEPARATOR);
 
             ThreadContext.put("client", socket.getRemoteSocketAddress().toString());
-            LOG.info("Established connection with client.");
+            LOG.debug("Established connection with client.");
 
             while (running.get()) {
                 byte[] incoming = recordReader.read();
 
                 if (incoming == null) {
-                    LOG.info("Terminating based on client's request.");
+                    LOG.debug("Terminating based on client's request.");
                     terminate();
                     break;
                 } else if (incoming.length == 0) {
@@ -120,6 +123,9 @@ public class ClientConnection extends ContextPreservingThread {
             outputStream.flush();
 
             socket.close();
+        } catch (SocketException e) {
+            // happens when the connection closes, we don't want to flood the log with errors because of that
+            LOG.debug("Socket exception", e);
         } catch (IOException e) {
             LOG.error("Communication problem with client.", e);
         } finally {
@@ -142,6 +148,8 @@ public class ClientConnection extends ContextPreservingThread {
             return handleIncomingKVRequest(request.getKVMessage());
         } else if (request.hasAdminMessage()) {
             return handleAdminMessage(request.getAdminMessage());
+        } else if (request.hasGossipMessage()) {
+            return Gossiper.getInstance().handleIncomingDigest((ClusterDigest) request.getGossipMessage());
         } else {
             throw new ProtocolException("Unsupported request: " + request);
         }
@@ -324,26 +332,26 @@ public class ClientConnection extends ContextPreservingThread {
     }
 
     private void cleanConnectionShutdown() {
-        LOG.info("Closing connection.");
+        LOG.debug("Closing connection.");
         if (inputStream != null) {
             try {
                 inputStream.close();
             } catch (IOException e) {
-                LOG.error("Error closing connection.", e);
+                LOG.warn("Error closing connection.", e);
             }
         }
         if (outputStream != null) {
             try {
                 outputStream.close();
             } catch (IOException e) {
-                LOG.error("Error closing connection.", e);
+                LOG.warn("Error closing connection.", e);
             }
         }
         if (socket != null) {
             try {
                 socket.close();
             } catch (IOException e) {
-                LOG.error("Error closing connection.", e);
+                LOG.warn("Error closing connection.", e);
             }
         }
         running.set(false);
