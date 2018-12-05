@@ -18,6 +18,9 @@
 
                 <!-- This route is chosen if ThreadContext has no value for key ROUTINGKEY. -->
                 <Route key="$${ctx:serverPort}">
+                    <Console name="console-default" target="SYSTEM_OUT">
+                        <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %l - %msg%n"/>
+                    </Console>
                     <File name="server-default" filename="logs/default.log">
                         <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %l - %msg%n"/>
                     </File>
@@ -27,6 +30,9 @@
                      (other than the value 'special' which had its own route above).
                      The value dynamically determines the name of the log file. -->
                 <Route>
+                    <Console name="console-${ctx:serverPort}" target="SYSTEM_OUT">
+                        <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %l - %msg%n"/>
+                    </Console>
                     <File name="server-${ctx:serverPort}" filename="logs/server_${ctx:serverPort}.log">
                         <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %l - %msg%n"/>
                     </File>
