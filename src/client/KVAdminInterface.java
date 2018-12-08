@@ -33,10 +33,11 @@ public interface KVAdminInterface extends KVInterface {
      *
      * Metadata must be updated before this can happen.
      *
+     * @param clusterInit If true, nodes assume they are in a fresh cluster and no syncing will happen
      * @return Server response
      * @throws ClientException If something goes wrong
      */
-    GenericResponse start() throws ClientException;
+    GenericResponse start(boolean clusterInit) throws ClientException;
 
     /**
      * Stop the server.

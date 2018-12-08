@@ -158,4 +158,12 @@ public class HashRing {
         }
     }
 
+    @Override
+    public String toString() {
+        StringJoiner nodeJoiner = new StringJoiner("\n", "Ring[\n", "]");
+        getNodes().forEach(node -> {
+            nodeJoiner.add(String.format("%s : %s", node, getAssignedRange(node)));
+        });
+        return nodeJoiner.toString();
+    }
 }

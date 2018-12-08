@@ -41,4 +41,14 @@ public class ClusterDigest implements GossipMessage {
         }
         return joiner.toString();
     }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof ClusterDigest) {
+            ClusterDigest cd = (ClusterDigest) obj;
+            return cluster.equals(cd.cluster);
+        } else {
+            return false;
+        }
+    }
 }

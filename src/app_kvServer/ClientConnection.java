@@ -286,6 +286,12 @@ public class ClientConnection extends ContextPreservingThread {
 
     private AdminMessage handleAdminMessage(AdminMessage msg) {
         if (msg instanceof StartServerRequest) {
+            StartServerRequest startServerRequest = (StartServerRequest) msg;
+            if (startServerRequest.isClusterInit()) {
+                Gossiper.getInstance().setOwnState(common.messages.gossip.ServerState.Status.OK);
+            } else {
+                Gossiper.getInstance().setOwnState(common.messages.gossip.ServerState.Status.JOINING);
+            }
             serverState.setStopped(false);
             LOG.info("Admin: Started the server.");
             return GenericResponse.success();

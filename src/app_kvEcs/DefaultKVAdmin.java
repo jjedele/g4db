@@ -68,16 +68,19 @@ public class DefaultKVAdmin implements KVAdmin {
     public void initService(int numberOfNodes, int cacheSize, CacheReplacementStrategy displacementStrategy) {
         // select n random servers
         List<ServerInfo> candidates = new ArrayList<>(servers);
-        Collections.shuffle(candidates);
+        //Collections.shuffle(candidates);
         candidates = candidates.stream().limit(numberOfNodes).collect(Collectors.toList());
         LOG.info("Initializing cluster with nodes: {}", candidates);
 
         // initialize the servers
+        final Collection<InetSocketAddress> seedNodes = candidates.stream()
+                .map(server -> server.address)
+                .collect(Collectors.toSet());
         candidates.stream()
                 .map(serverInfo -> {
                     Optional<KVAdminInterface> adminClient = Optional.empty();
                     try {
-                        adminClient = Optional.of(initializeNode(serverInfo, cacheSize, displacementStrategy));
+                        adminClient = Optional.of(initializeNode(serverInfo, cacheSize, displacementStrategy, seedNodes));
                     } catch (IOException | InterruptedException | ClientException e) {
                         LOG.error("Could not start node.", e);
                     }
@@ -91,16 +94,16 @@ public class DefaultKVAdmin implements KVAdmin {
                 });
 
         // compose cluster metadata and send it to servers
-        Collection<NodeEntry> activeNodes = activeNodeEntries();
-        LOG.info("Updating cluster nodes with following membership information: {}", activeNodes);
-        adminClients.values().stream()
-                .forEach(adminClient -> {
-                    try {
-                        adminClient.updateMetadata(activeNodes);
-                    } catch (ClientException e) {
-                        LOG.error("Could not updated metadata on node " + adminClient.getNodeAddress(), e);
-                    }
-                });
+//        Collection<NodeEntry> activeNodes = activeNodeEntries();
+//        LOG.info("Updating cluster nodes with following membership information: {}", activeNodes);
+//        adminClients.values().stream()
+//                .forEach(adminClient -> {
+//                    try {
+//                        adminClient.updateMetadata(activeNodes);
+//                    } catch (ClientException e) {
+//                        LOG.error("Could not updated metadata on node " + adminClient.getNodeAddress(), e);
+//                    }
+//                });
     }
 
     @Override
@@ -108,7 +111,7 @@ public class DefaultKVAdmin implements KVAdmin {
         LOG.info("Starting the cluster");
         for (KVAdminInterface connection : adminClients.values()) {
             try {
-                connection.start();
+                connection.start(true);
             } catch (ClientException e) {
                 LOG.error("Could not start node " + connection.getNodeAddress(), e);
             }
@@ -151,14 +154,17 @@ public class DefaultKVAdmin implements KVAdmin {
             throw new RuntimeException("No more nodes to add.");
         }
 
-        Collections.shuffle(candidates);
+        //Collections.shuffle(candidates);
         ServerInfo nodeToAdd = candidates.get(0);
         LOG.info("Adding node to cluster: {}", nodeToAdd);
 
         // set up the node
+        Collection<InetSocketAddress> seedNodes = adminClients.keySet().stream()
+                .limit(3)
+                .collect(Collectors.toSet());
         try {
-            KVAdminInterface adminClient = initializeNode(nodeToAdd, cacheSize, displacementStrategy);
-            adminClient.start();
+            KVAdminInterface adminClient = initializeNode(nodeToAdd, cacheSize, displacementStrategy, seedNodes);
+            adminClient.start(false);
             adminClients.put(adminClient.getNodeAddress(), adminClient);
             hashRing.addNode(adminClient.getNodeAddress());
         } catch (IOException | InterruptedException | ClientException e) {
@@ -166,29 +172,29 @@ public class DefaultKVAdmin implements KVAdmin {
         }
 
         // transfer data from the successor to the new node
-        InetSocketAddress successor = hashRing.getSuccessor(nodeToAdd.address);
-        Range assignedRange = hashRing.getAssignedRange(nodeToAdd.address);
-        try {
-            KVAdminInterface successorAdmin = adminClients.get(successor);
-            successorAdmin.enableWriteLock();
-            moveDataAndWaitForCompletion(successor, nodeToAdd.address, assignedRange);
-            successorAdmin.disableWriteLock();
-        } catch (ClientException e) {
-            LOG.error("Could not transfer data to new node.", e);
-        }
-
-        // notify other nodes about the updated cluster
-        // this will also cause the successor of the new node to clean up the transferred data
-        Collection<NodeEntry> clusterNodes = activeNodeEntries();
-        LOG.info("Informing nodes about new cluster state: {}", clusterNodes);
-        adminClients.values().stream()
-                .forEach(adminClient -> {
-                    try {
-                        adminClient.updateMetadata(clusterNodes);
-                    } catch (ClientException e) {
-                        LOG.error("Could not updated metadata on node " + adminClient.getNodeAddress(), e);
-                    }
-                });
+//        InetSocketAddress successor = hashRing.getSuccessor(nodeToAdd.address);
+//        Range assignedRange = hashRing.getAssignedRange(nodeToAdd.address);
+//        try {
+//            KVAdminInterface successorAdmin = adminClients.get(successor);
+//            successorAdmin.enableWriteLock();
+//            moveDataAndWaitForCompletion(successor, nodeToAdd.address, assignedRange);
+//            successorAdmin.disableWriteLock();
+//        } catch (ClientException e) {
+//            LOG.error("Could not transfer data to new node.", e);
+//        }
+//
+//        // notify other nodes about the updated cluster
+//        // this will also cause the successor of the new node to clean up the transferred data
+//        Collection<NodeEntry> clusterNodes = activeNodeEntries();
+//        LOG.info("Informing nodes about new cluster state: {}", clusterNodes);
+//        adminClients.values().stream()
+//                .forEach(adminClient -> {
+//                    try {
+//                        adminClient.updateMetadata(clusterNodes);
+//                    } catch (ClientException e) {
+//                        LOG.error("Could not updated metadata on node " + adminClient.getNodeAddress(), e);
+//                    }
+//                });
     }
 
     @Override
@@ -274,13 +280,18 @@ public class DefaultKVAdmin implements KVAdmin {
 
     private static KVAdminInterface initializeNode(ServerInfo serverInfo,
                                                    int cacheSize,
-                                                   CacheReplacementStrategy displacementStrategy)
+                                                   CacheReplacementStrategy displacementStrategy,
+                                                   Collection<InetSocketAddress> seedNodes)
             throws IOException, InterruptedException, ClientException {
         // FIXME for now we assume this directory is the same for all nodes
         File workingDir = new File(System.getProperty("user.dir"));
 
-        String command = String.format("cd %s && bash ./kv_daemon.sh %d %d %s",
-                workingDir, serverInfo.address.getPort(), cacheSize, displacementStrategy.name());
+        String joinedSeedNodes = seedNodes.stream()
+                .map(address -> String.format("%s:%d", address.getHostString(), address.getPort()))
+                .collect(Collectors.joining(","));
+
+        String command = String.format("cd %s && bash ./kv_daemon.sh %d %d %s %s",
+                workingDir, serverInfo.address.getPort(), cacheSize, displacementStrategy.name(), joinedSeedNodes);
 
         executeSSH(serverInfo.address, serverInfo.userName, command);
 
@@ -307,14 +318,16 @@ public class DefaultKVAdmin implements KVAdmin {
     public static void main(String[] args) throws IOException, InterruptedException {
         DefaultKVAdmin kvadmin = new DefaultKVAdmin(Arrays.asList(
                 new ServerInfo("node1", "jeff", new InetSocketAddress("localhost", 50000)),
-                new ServerInfo("node2", "jeff", new InetSocketAddress("localhost", 50000))));
-        kvadmin.initService(1, 45, CacheReplacementStrategy.LRU);
+                new ServerInfo("node2", "jeff", new InetSocketAddress("localhost", 50001)),
+                new ServerInfo("node3", "jeff", new InetSocketAddress("localhost", 50002)),
+                new ServerInfo("node4", "jeff", new InetSocketAddress("localhost", 50003))));
+        kvadmin.initService(3, 45, CacheReplacementStrategy.LRU);
         kvadmin.start();
-        Thread.sleep(20000);
-        kvadmin.addNode(25, CacheReplacementStrategy.FIFO);
-        Thread.sleep(10000);
-        kvadmin.removeNode();
-        Thread.sleep(30000);
-        kvadmin.shutDown();
+//        Thread.sleep(20000);
+//        kvadmin.addNode(25, CacheReplacementStrategy.FIFO);
+//        Thread.sleep(10000);
+//        kvadmin.removeNode();
+//        Thread.sleep(30000);
+//        kvadmin.shutDown();
     }
 }

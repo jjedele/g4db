@@ -60,10 +60,10 @@ public class KVAdmin implements KVAdminInterface {
      * {@inheritDoc}
      */
     @Override
-    public GenericResponse start() throws ClientException {
+    public GenericResponse start(boolean clusterInit) throws ClientException {
         ensureConnected();
 
-        return executeGenericReplySynchronously(new StartServerRequest());
+        return executeGenericReplySynchronously(new StartServerRequest(clusterInit));
     }
 
     /**

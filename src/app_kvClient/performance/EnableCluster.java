@@ -50,7 +50,7 @@ public class EnableCluster {
         adminClients.values().stream().forEach(activeConnection -> {
             try {
                 activeConnection.updateMetadata(nodeEntries);
-                activeConnection.start();
+                activeConnection.start(true);
             } catch (ClientException e) {
                 e.printStackTrace();
             }

@@ -21,6 +21,7 @@ import java.net.Socket;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 public class KVServer implements Runnable, SessionRegistry, GossipEventListener {
 
@@ -207,6 +208,12 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
     @Override
     public void clusterChanged(ClusterDigest clusterDigest) {
         LOG.info("Cluster changed: {}", clusterDigest);
+        Set<InetSocketAddress> upNodes = clusterDigest.getCluster().entrySet().stream()
+                .filter(node -> node.getValue().getStatus() == common.messages.gossip.ServerState.Status.OK)
+                .map(node -> node.getKey())
+                .collect(Collectors.toSet());
+        LOG.info("Setting alive cluster nodes to: {}", upNodes);
+        serverState.setClusterNodes(upNodes);
     }
 
 }

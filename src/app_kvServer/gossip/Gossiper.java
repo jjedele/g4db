@@ -35,7 +35,7 @@ public class Gossiper {
     private long heartbeat;
     private final Map<InetSocketAddress, ServerState> cluster;
     private final Set<InetSocketAddress> seedNodes;
-    private final ScheduledExecutorService executorService;
+    private final ScheduledThreadPoolExecutor executorService;
     private ServerState.Status ownState;
     private final Set<InetSocketAddress> deadCandidates;
     private final Random random;
@@ -79,6 +79,7 @@ public class Gossiper {
      * Start the gossiping.
      */
     public void start() {
+        LOG.info("Gossiper starting with seed nodes: {}", seedNodes);
         executorService.scheduleAtFixedRate(new GossipTask(), 1, gossipIntervalSeconds, TimeUnit.SECONDS);
     }
 
@@ -87,6 +88,22 @@ public class Gossiper {
      */
     public void stop() {
         executorService.shutdownNow();
+    }
+
+    /**
+     * Return the current state of this node.
+     * @return State
+     */
+    public ServerState.Status getOwnState() {
+        return ownState;
+    }
+
+    /**
+     * Set the state of this node.
+     * @param ownState State
+     */
+    public void setOwnState(ServerState.Status ownState) {
+        this.ownState = ownState;
     }
 
     /**
@@ -139,7 +156,7 @@ public class Gossiper {
         toMerge.retainAll(cluster.keySet());
 
         Set<InetSocketAddress> othersMoreRecent = toMerge.stream()
-                .filter(node -> cluster.get(node).compareTo(otherCluster.get(node)) < 0)
+                .filter(node -> cluster.get(node).compareTo(otherCluster.get(node)) < 0 && !node.equals(myself))
                 .collect(Collectors.toSet());
 
         Map<InetSocketAddress, ServerState.Status> changes = new HashMap<>();
@@ -183,12 +200,12 @@ public class Gossiper {
         this.heartbeat = 0;
         this.cluster = new HashMap<>();
         this.seedNodes = new HashSet<>();
-        this.executorService = new ScheduledThreadPoolExecutor(2);
-        this.ownState = ServerState.Status.JOINING;
+        this.executorService = new ScheduledThreadPoolExecutor(5);
+        this.ownState = ServerState.Status.STOPPED;
         this.deadCandidates = new HashSet<>();
         this.random = new Random();
         this.eventListeners = new HashSet<>();
-        this.gossipIntervalSeconds = 1;
+        this.gossipIntervalSeconds = 2;
     }
 
     // the efficiency of of gossiping improves if we select the nodes we contact with some care
@@ -201,16 +218,18 @@ public class Gossiper {
         // we try to contact <fanOut> regular nodes in each round
         List<InetSocketAddress> candidates = new ArrayList<>(cluster.keySet());
         Collections.shuffle(candidates);
-        List<InetSocketAddress> targets = candidates.stream()
+        Set<InetSocketAddress> targets = candidates.stream()
                 .filter(node -> !myself.equals(node) && !deadCandidates.contains(node))
                 .limit(fanOut)
-                .collect(Collectors.toList());
+                .collect(Collectors.toSet());
 
         // seed node handling
         // if we don't know about other nodes we definitely contact a seed node
         // else we probabilistically contact a seed node additionally to have some information hotspots
         if (targets.isEmpty() || random.nextFloat() < contactSeedNodeChance) {
-            List<InetSocketAddress> seeds = new ArrayList<>(seedNodes);
+            List<InetSocketAddress> seeds = seedNodes.stream()
+                    .filter(node -> !myself.equals(node))
+                    .collect(Collectors.toList());
             Collections.shuffle(seeds);
             targets.add(seeds.get(0));
         }
@@ -218,7 +237,9 @@ public class Gossiper {
         // dead node handling
         // we probabilistically retry to reach a potentially dead node to find out if they came back to life
         if (!deadCandidates.isEmpty() && random.nextFloat() < contactDeadNodeChance) {
-            List<InetSocketAddress> deadNodes = new ArrayList<>(deadCandidates);
+            List<InetSocketAddress> deadNodes = deadCandidates.stream()
+                    .filter(node -> !myself.equals(node))
+                    .collect(Collectors.toList());
             Collections.shuffle(deadNodes);
             targets.add(deadNodes.get(0));
         }
@@ -236,11 +257,12 @@ public class Gossiper {
             // TODO DECOMISSIONED states should always prevail (as long generation is the same)
             cluster.put(myself, new ServerState(generation, heartbeat, ownState, heartbeat));
             ClusterDigest digest = new ClusterDigest(cluster);
-            LOG.debug("Gossip digest: {}", digest);
+            Collection<InetSocketAddress> gossipTargets = selectGossipTargets();
+            LOG.debug("Gossiping digest {} to targets {}", digest, gossipTargets);
 
             // initiate a gossip exchange with a small number of cluster nodes
             Map<InetSocketAddress, Future<ClusterDigest>> inFlightRequests = new HashMap<>();
-            for (InetSocketAddress target : selectGossipTargets()) {
+            for (InetSocketAddress target : gossipTargets) {
                 inFlightRequests.put(target,
                         executorService.schedule(
                                 new GossipExchange(target), 0, TimeUnit.SECONDS));
@@ -249,7 +271,7 @@ public class Gossiper {
             // resolve the outcomes of the gossip exchanges
             for (Map.Entry<InetSocketAddress, Future<ClusterDigest>> request : inFlightRequests.entrySet()) {
                 try {
-                    digest = request.getValue().get(2, TimeUnit.SECONDS);
+                    digest = request.getValue().get(1, TimeUnit.SECONDS);
                     handleIncomingDigest(digest);
                     deadCandidates.remove(request.getKey());
                 } catch (InterruptedException | ExecutionException | TimeoutException e) {

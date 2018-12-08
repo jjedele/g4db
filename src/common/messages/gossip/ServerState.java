@@ -6,6 +6,7 @@ package common.messages.gossip;
 public class ServerState implements Comparable<ServerState> {
 
     public enum Status {
+        STOPPED,
         OK,
         JOINING,
         DECOMMISSIONED

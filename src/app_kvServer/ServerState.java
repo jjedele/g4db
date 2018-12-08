@@ -91,9 +91,7 @@ public class ServerState implements ServerStateMBean {
             hashRing.addNode(nodeEntry);
         }
 
-        for (InetSocketAddress node : hashRing.getNodes()) {
-            LOG.info("Node responsibility {}: {}", node, hashRing.getAssignedRange(node));
-        }
+        LOG.info(hashRing);
     }
 
     //

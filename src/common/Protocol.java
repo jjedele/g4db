@@ -158,7 +158,7 @@ public final class Protocol {
         } else if (msg instanceof UpdateMetadataRequest) {
             encodeUpdateMetadataRequest(sb, (UpdateMetadataRequest) msg);
         } else if (msg instanceof StartServerRequest) {
-            encodeSimpleAdminMessage(sb, StartServerRequest.TYPE_CODE);
+            encodeStartServerRequest(sb, (StartServerRequest) msg);
         } else if (msg instanceof StopServerRequest) {
             encodeSimpleAdminMessage(sb, StopServerRequest.TYPE_CODE);
         } else if (msg instanceof ShutDownServerRequest) {
@@ -201,6 +201,14 @@ public final class Protocol {
 
     private static void encodeSimpleAdminMessage(StringBuilder sb, byte typeCode) {
         sb.append(typeCode);
+        sb.append(UNIT_SEPARATOR);
+    }
+
+    private static void encodeStartServerRequest(StringBuilder sb, StartServerRequest req) {
+        sb.append(StartServerRequest.TYPE_CODE);
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(Boolean.toString(req.isClusterInit()));
         sb.append(UNIT_SEPARATOR);
     }
 
@@ -296,7 +304,9 @@ public final class Protocol {
 
             return updateMetadataRequest;
         } else if (type == StartServerRequest.TYPE_CODE) {
-            return new StartServerRequest();
+            boolean clusterInit = Boolean.parseBoolean(scanner.next());
+
+            return new StartServerRequest(clusterInit);
         } else if (type == StopServerRequest.TYPE_CODE) {
             return new StopServerRequest();
         } else if (type == ShutDownServerRequest.TYPE_CODE) {
