@@ -36,11 +36,26 @@ public class Gossiper {
     private final Map<InetSocketAddress, ServerState> cluster;
     private final Set<InetSocketAddress> seedNodes;
     private final ScheduledThreadPoolExecutor executorService;
-    private ServerState.Status ownState;
+    private volatile ServerState.Status ownState;
     private final Set<InetSocketAddress> deadCandidates;
     private final Random random;
     private final Collection<GossipEventListener> eventListeners;
     private final int gossipIntervalSeconds;
+
+    // only to be accessed via singleton pattern
+    private Gossiper(InetSocketAddress myself) {
+        this.myself = myself;
+        this.generation = System.currentTimeMillis();
+        this.heartbeat = 0;
+        this.cluster = new HashMap<>();
+        this.seedNodes = new HashSet<>();
+        this.executorService = new ScheduledThreadPoolExecutor(5);
+        this.ownState = ServerState.Status.STOPPED;
+        this.deadCandidates = new HashSet<>();
+        this.random = new Random();
+        this.eventListeners = new HashSet<>();
+        this.gossipIntervalSeconds = 2;
+    }
 
     /**
      * Initialize the Gossiper for this server instance.
@@ -176,6 +191,7 @@ public class Gossiper {
         //        .collect(Collectors.toSet());
 
         // handle event listeners
+        LOG.debug("Cluster: {}", cluster);
         for (GossipEventListener listener : eventListeners) {
             for (InetSocketAddress node : toAdd) {
                 listener.nodeAdded(node);
@@ -191,21 +207,6 @@ public class Gossiper {
         }
 
         return new ClusterDigest(cluster);
-    }
-
-    // only to be accessed via singleton pattern
-    private Gossiper(InetSocketAddress myself) {
-        this.myself = myself;
-        this.generation = System.currentTimeMillis();
-        this.heartbeat = 0;
-        this.cluster = new HashMap<>();
-        this.seedNodes = new HashSet<>();
-        this.executorService = new ScheduledThreadPoolExecutor(5);
-        this.ownState = ServerState.Status.STOPPED;
-        this.deadCandidates = new HashSet<>();
-        this.random = new Random();
-        this.eventListeners = new HashSet<>();
-        this.gossipIntervalSeconds = 2;
     }
 
     // the efficiency of of gossiping improves if we select the nodes we contact with some care

@@ -96,4 +96,9 @@ public class ServerState implements Comparable<ServerState> {
             return false;
         }
     }
+
+    @Override
+    public String toString() {
+        return String.format("ServerState(%d, %d, %s, %d)", generation, heartBeat, status, stateVersion);
+    }
 }

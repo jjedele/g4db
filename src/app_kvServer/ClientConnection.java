@@ -6,6 +6,7 @@ import app_kvServer.admin.MoveDataTask;
 import app_kvServer.gossip.Gossiper;
 import app_kvServer.persistence.PersistenceException;
 import app_kvServer.persistence.PersistenceService;
+import app_kvServer.sync.Synchronizer;
 import common.CorrelatedMessage;
 import common.Protocol;
 import common.exceptions.ProtocolException;
@@ -290,7 +291,7 @@ public class ClientConnection extends ContextPreservingThread {
             if (startServerRequest.isClusterInit()) {
                 Gossiper.getInstance().setOwnState(common.messages.gossip.ServerState.Status.OK);
             } else {
-                Gossiper.getInstance().setOwnState(common.messages.gossip.ServerState.Status.JOINING);
+                Synchronizer.getInstance().initiateJoin();
             }
             serverState.setStopped(false);
             LOG.info("Admin: Started the server.");

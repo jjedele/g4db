@@ -5,6 +5,7 @@ import app_kvServer.gossip.GossipEventListener;
 import app_kvServer.gossip.Gossiper;
 import app_kvServer.persistence.CachedDiskStorage;
 import app_kvServer.persistence.PersistenceService;
+import app_kvServer.sync.Synchronizer;
 import common.messages.gossip.ClusterDigest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -116,6 +117,7 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
 
         Gossiper.initialize(serverState.getMyself());
         Gossiper.getInstance().addListener(this);
+        Synchronizer.initialize(serverState.getMyself());
 
         // try to register server state as MBean
         try {
