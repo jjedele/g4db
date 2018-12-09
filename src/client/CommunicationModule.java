@@ -153,11 +153,11 @@ public class CommunicationModule {
                     }
                 }
             } catch (IOException | InterruptedException e) {
-                LOG.error("Could not send message.", e);
+                LOG.debug("Closing writer thread.", e);
                 try {
                     outputStream.close();
                 } catch (IOException e2) {
-                    LOG.error("Could not close output stream.", e2);
+                    LOG.warn("Could not close output stream.", e2);
                 }
                 if (restarting.compareAndSet(false, true)) {
                     // when both reader and writer realize the broken connection, the first one wins
@@ -222,11 +222,11 @@ public class CommunicationModule {
                     }
                 }
             } catch (IOException e) {
-                LOG.error("Could not read message.", e);
+                LOG.debug("Closing reader thread.", e);
                 try {
                     inputStream.close();
                 } catch (IOException e2) {
-                    LOG.error("Could not close input stream.", e2);
+                    LOG.warn("Could not close input stream.", e2);
                 }
                 if (restarting.compareAndSet(false, true)) {
                     // when both reader and writer realize the broken connection, the first one wins

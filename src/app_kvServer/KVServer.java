@@ -151,7 +151,10 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
                 clientConnection.start();
             }
         } catch (IOException e) {
-            LOG.error("Error while accepting connections.", e);
+            if (running.get()) {
+                LOG.error("Error while accepting connections.", e);
+            }
+            // else: orderly shutdown
         } finally {
             cleanSocketShutdown();
         }

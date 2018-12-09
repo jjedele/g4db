@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
+    <Properties>
+        <Property name="layout">%d{DEFAULT} [%p] [%c] - %m [%X]%n</Property>
+    </Properties>
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %logger{18} %l - %msg%n"/>
@@ -21,8 +24,8 @@
                     <!--<Console name="console-default" target="SYSTEM_OUT">
                         <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %l - %msg%n"/>
                     </Console>-->
-                    <File name="server-default" filename="logs/default.log">
-                        <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %l - %msg%n"/>
+                    <File name="server-default" filename="logs/default.log" advertise="true" advertiseURI="file:logs/default.log">
+                        <PatternLayout pattern="${layout}"/>
                     </File>
                 </Route>
 
@@ -33,8 +36,8 @@
                     <!--<Console name="console-${ctx:serverPort}" target="SYSTEM_OUT">
                         <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %l - %msg%n"/>
                     </Console>-->
-                    <File name="server-${ctx:serverPort}" filename="logs/server_${ctx:serverPort}.log">
-                        <PatternLayout pattern="%d{DEFAULT} [%X] %-5level %l - %msg%n"/>
+                    <File name="server-${ctx:serverPort}" filename="logs/server_${ctx:serverPort}.log" advertise="true" advertiseURI="file:logs/server_${ctx:serverPort}.log" >
+                        <PatternLayout pattern="${layout}"/>
                     </File>
                 </Route>
             </Routes>
