@@ -5,6 +5,7 @@ import common.hash.NodeEntry;
 import common.hash.Range;
 import common.messages.admin.GenericResponse;
 import common.messages.admin.MaintenanceStatusResponse;
+import common.messages.gossip.ClusterDigest;
 
 import java.net.InetSocketAddress;
 import java.util.Collection;
@@ -92,5 +93,12 @@ public interface KVAdminInterface extends KVInterface {
      * @throws ClientException if something goes wrong
      */
     MaintenanceStatusResponse getMaintenanceStatus() throws ClientException;
+
+    /**
+     * Exchanges cluster information with node.
+     * @param digest Cluster information to send to the node
+     * @return The local cluster view of the node
+     */
+    ClusterDigest exchangeClusterInformation(ClusterDigest digest) throws ClientException;
 
 }

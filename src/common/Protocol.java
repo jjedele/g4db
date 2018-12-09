@@ -431,17 +431,19 @@ public final class Protocol {
     private static ClusterDigest decodeClusterDigest(String encoded) {
         Map<InetSocketAddress, ServerState> cluster = new HashMap<>();
 
-        Arrays.stream(encoded.split("\n")).forEach(nodeStr -> {
-            String[] parts = nodeStr.split(":");
-            String host = parts[0];
-            int port = Integer.parseInt(parts[1]);
-            long generation = Long.parseLong(parts[2]);
-            long heartBeat = Long.parseLong(parts[3]);
-            ServerState.Status state = ServerState.Status.valueOf(parts[4]);
-            long stateVersion = Long.parseLong(parts[5]);
+        if (encoded != null && encoded.length() > 0) {
+            Arrays.stream(encoded.split("\n")).forEach(nodeStr -> {
+                String[] parts = nodeStr.split(":");
+                String host = parts[0];
+                int port = Integer.parseInt(parts[1]);
+                long generation = Long.parseLong(parts[2]);
+                long heartBeat = Long.parseLong(parts[3]);
+                ServerState.Status state = ServerState.Status.valueOf(parts[4]);
+                long stateVersion = Long.parseLong(parts[5]);
 
-            cluster.put(new InetSocketAddress(host, port), new ServerState(generation, heartBeat, state, stateVersion));
-        });
+                cluster.put(new InetSocketAddress(host, port), new ServerState(generation, heartBeat, state, stateVersion));
+            });
+        }
 
         return new ClusterDigest(cluster);
     }

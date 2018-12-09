@@ -6,6 +6,7 @@ import common.CorrelatedMessage;
 import common.hash.NodeEntry;
 import common.hash.Range;
 import common.messages.admin.*;
+import common.messages.gossip.ClusterDigest;
 
 import java.net.InetSocketAddress;
 import java.util.Collection;
@@ -125,6 +126,14 @@ public class KVAdmin implements KVAdminInterface {
     }
 
     /**
+     * Return the underlying communication module for more flexible asynchronous operations.
+     * @return
+     */
+    public CommunicationModule communicationModule() {
+        return communicationModule;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
@@ -149,6 +158,18 @@ public class KVAdmin implements KVAdminInterface {
             return (MaintenanceStatusResponse) communicationModule
                     .send(new GetMaintenanceStatusRequest())
                     .thenApply(CorrelatedMessage::getAdminMessage)
+                    .get(timeoutSeconds, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new ClientException("Could not execute request.", e);
+        }
+    }
+
+    @Override
+    public ClusterDigest exchangeClusterInformation(ClusterDigest digest) throws ClientException {
+        try {
+            return (ClusterDigest) communicationModule
+                    .send(digest)
+                    .thenApply(CorrelatedMessage::getGossipMessage)
                     .get(timeoutSeconds, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new ClientException("Could not execute request.", e);

@@ -32,6 +32,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
@@ -151,7 +152,10 @@ public class ClientConnection extends ContextPreservingThread {
         } else if (request.hasAdminMessage()) {
             return handleAdminMessage(request.getAdminMessage());
         } else if (request.hasGossipMessage()) {
-            return Gossiper.getInstance().handleIncomingDigest((ClusterDigest) request.getGossipMessage());
+            ClusterDigest incomingDigest = (ClusterDigest) request.getGossipMessage();
+            return Optional.ofNullable(incomingDigest)
+                    .map(Gossiper.getInstance()::handleIncomingDigest)
+                    .orElse(Gossiper.getInstance().getClusterDigest());
         } else {
             throw new ProtocolException("Unsupported request: " + request);
         }
