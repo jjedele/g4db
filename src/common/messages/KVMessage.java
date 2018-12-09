@@ -34,7 +34,10 @@ public interface KVMessage extends Message {
         /** Server does not allow write access at this time because a data transfer is in progress. */
         SERVER_WRITE_LOCK(0xB),
         /** Server is not responsible for the provided key. */
-        SERVER_NOT_RESPONSIBLE(0xC);
+        SERVER_NOT_RESPONSIBLE(0xC),
+
+        /** Request to store a value for a replica */
+        PUT_REPLICA(0xD);
 
         public final byte opCode;
 

@@ -294,6 +294,7 @@ public class Gossiper {
         @Override
         public ClusterDigest call() throws Exception {
             Socket socket = new Socket(target.getAddress(), target.getPort());
+            LOG.debug("Gossip call {}", socket.getLocalSocketAddress());
 
             try {
                 // send the message

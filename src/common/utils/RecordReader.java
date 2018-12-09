@@ -58,7 +58,7 @@ public class RecordReader {
         }
 
         int readCount;
-        while ((readCount = inputStream.read(buffer)) > 0) {
+        while ((readCount = inputStream.read(buffer)) >= 0) {
             // a read can possibly contain multiple records at once
             // we separate them and buffer them
             int recordStart = 0;

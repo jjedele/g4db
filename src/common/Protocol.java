@@ -173,6 +173,12 @@ public final class Protocol {
             encodeSimpleAdminMessage(sb, GetMaintenanceStatusRequest.TYPE_CODE);
         } else if (msg instanceof MaintenanceStatusResponse) {
             encodeMaintenanceStatusResponse(sb, (MaintenanceStatusResponse) msg);
+        } else if (msg instanceof InitiateStreamRequest) {
+            encodeInitiateStreamRequest(sb, (InitiateStreamRequest) msg);
+        } else if (msg instanceof InitiateStreamResponse) {
+            encodeInitiateStreamResponse(sb, (InitiateStreamResponse) msg);
+        } else if (msg instanceof StreamCompleteMessage) {
+            encodeStreamCompleteMessage(sb, (StreamCompleteMessage) msg);
         } else {
             throw new AssertionError("Unsupported AdminMessage: " + msg.getClass());
         }
@@ -184,19 +190,8 @@ public final class Protocol {
 
         // only cluster digests for now
         ClusterDigest digest = (ClusterDigest) msg;
-        StringJoiner digestJoiner = new StringJoiner("\n");
-        for (Map.Entry<InetSocketAddress, ServerState> e : digest.getCluster().entrySet()) {
-            StringJoiner recordJoiner = new StringJoiner(":");
-            recordJoiner.add(e.getKey().getHostString());
-            recordJoiner.add(Integer.toString(e.getKey().getPort()));
-            recordJoiner.add(Long.toString(e.getValue().getGeneration()));
-            recordJoiner.add(Long.toString(e.getValue().getHeartBeat()));
-            recordJoiner.add(e.getValue().getStatus().name());
-            recordJoiner.add(Long.toString(e.getValue().getStateVersion()));
-
-            digestJoiner.add(recordJoiner.toString());
-        }
-        sb.append(digestJoiner.toString());
+        sb.append(encodeClusterDigest(digest));
+        sb.append(UNIT_SEPARATOR);
     }
 
     private static void encodeSimpleAdminMessage(StringBuilder sb, byte typeCode) {
@@ -256,6 +251,50 @@ public final class Protocol {
         sb.append(UNIT_SEPARATOR);
 
         sb.append(resp.getTask());
+        sb.append(UNIT_SEPARATOR);
+    }
+
+    private static void encodeInitiateStreamRequest(StringBuilder sb, InitiateStreamRequest req) {
+        sb.append(InitiateStreamRequest.TYPE_CODE);
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(encodeAddress(req.getDestination()));
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(encodeRange(req.getKeyRange()));
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(encodeClusterDigest(req.getClusterDigest()));
+        sb.append(UNIT_SEPARATOR);
+    }
+
+    private static void encodeInitiateStreamResponse(StringBuilder sb, InitiateStreamResponse resp) {
+        sb.append(InitiateStreamResponse.TYPE_CODE);
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(Boolean.toString(resp.isSuccess()));
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(resp.getStreamId());
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(Integer.toString(resp.getNumberOfItems()));
+        sb.append(UNIT_SEPARATOR);
+
+        if (resp.getClusterDigest() != null) {
+            sb.append(encodeClusterDigest(resp.getClusterDigest()));
+            sb.append(UNIT_SEPARATOR);
+        }
+    }
+
+    private static void encodeStreamCompleteMessage(StringBuilder sb, StreamCompleteMessage msg) {
+        sb.append(StreamCompleteMessage.TYPE_CODE);
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getStreamId());
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(encodeRange(msg.getRange()));
         sb.append(UNIT_SEPARATOR);
     }
 
@@ -329,6 +368,27 @@ public final class Protocol {
             String task = scanner.next();
 
             return new MaintenanceStatusResponse(active, task, progress);
+        } else if (type == InitiateStreamRequest.TYPE_CODE) {
+            InetSocketAddress target = decodeAddress(scanner.next());
+            Range range = decodeRange(scanner.next());
+            ClusterDigest digest = decodeClusterDigest(scanner.next());
+
+            return new InitiateStreamRequest(target, range, digest);
+        } else if (type == InitiateStreamResponse.TYPE_CODE) {
+            boolean success = Boolean.parseBoolean(scanner.next());
+            String streamId = scanner.next();
+            int numberOfItems = Integer.parseInt(scanner.next());
+            ClusterDigest clusterDigest = null;
+            if (scanner.hasNext()) {
+                clusterDigest = decodeClusterDigest(scanner.next());
+            }
+
+            return new InitiateStreamResponse(success, streamId, numberOfItems, clusterDigest);
+        } else if (type == StreamCompleteMessage.TYPE_CODE) {
+            String streamId = scanner.next();
+            Range range = decodeRange(scanner.next());
+
+            return new StreamCompleteMessage(streamId, range);
         } else {
             throw new ProtocolException("Unknown admin message type: " + type);
         }
@@ -337,6 +397,38 @@ public final class Protocol {
     private static GossipMessage decodeGossipMessage(Scanner scanner) {
         // only ClusterDigests for now
         String encoded = scanner.next();
+
+        return decodeClusterDigest(encoded);
+    }
+
+    private static String encodeRange(Range range) {
+        return String.format("%d:%d", range.getStart(), range.getEnd());
+    }
+
+    private static Range decodeRange(String encoded) {
+        String[] parts = encoded.split(":");
+        int start = Integer.parseInt(parts[0]);
+        int end = Integer.parseInt(parts[1]);
+        return new Range(start, end);
+    }
+
+    private static String encodeClusterDigest(ClusterDigest digest) {
+        StringJoiner digestJoiner = new StringJoiner("\n");
+        for (Map.Entry<InetSocketAddress, ServerState> e : digest.getCluster().entrySet()) {
+            StringJoiner recordJoiner = new StringJoiner(":");
+            recordJoiner.add(e.getKey().getHostString());
+            recordJoiner.add(Integer.toString(e.getKey().getPort()));
+            recordJoiner.add(Long.toString(e.getValue().getGeneration()));
+            recordJoiner.add(Long.toString(e.getValue().getHeartBeat()));
+            recordJoiner.add(e.getValue().getStatus().name());
+            recordJoiner.add(Long.toString(e.getValue().getStateVersion()));
+
+            digestJoiner.add(recordJoiner.toString());
+        }
+        return digestJoiner.toString();
+    }
+
+    private static ClusterDigest decodeClusterDigest(String encoded) {
         Map<InetSocketAddress, ServerState> cluster = new HashMap<>();
 
         Arrays.stream(encoded.split("\n")).forEach(nodeStr -> {

@@ -60,8 +60,6 @@ public class CommunicationModule {
         this.outstandingRequests = new LinkedBlockingDeque<>();
         this.correlatedRequests = new ConcurrentHashMap<>(bufferCapacity);
         this.running = false;
-        // make log4j inherit thread contexts from parent thread because we use a lot of workers
-        System.setProperty("log4j2.isThreadContextMapInheritable", "true");
         ThreadContext.put("connection", address.toString());
     }
 
@@ -191,8 +189,9 @@ public class CommunicationModule {
                     byte[] payload = recordReader.read();
 
                     if (payload == null) {
-                        LOG.info("Restarting client because no more input from socket.");
-                        break;
+                        //LOG.info("Restarting client because no more input from socket.");
+                        //break;
+                        continue;
                     }
                     if (Arrays.equals(Protocol.SHUTDOWN_CMD, payload)) {
                         // input stream has been shutdown externally, we can stop
@@ -244,7 +243,9 @@ public class CommunicationModule {
 
     // orderly shutdown this client
     private void shutDownClient() {
-        LOG.info("Shutting down client.");
+        if (terminated.get()) {
+            LOG.info("Shutting down client.");
+        }
         if (socket != null) {
             try {
                 socket.shutdownInput();
@@ -252,7 +253,7 @@ public class CommunicationModule {
                 // will also close the associated input and output streams
                 socket.close();
             } catch (IOException e) {
-                LOG.warn("Could not close socket.", e);
+                LOG.debug("Could not close socket.", e);
             }
         }
 
@@ -285,7 +286,7 @@ public class CommunicationModule {
         restarting.set(true);
         shutDownClient();
 
-        LOG.info("Initiating client restart.");
+        LOG.info("Initiating client (re)start.");
 
         // try to recreate the socket and the worker threads
         socket = null;

@@ -117,7 +117,7 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
 
         Gossiper.initialize(serverState.getMyself());
         Gossiper.getInstance().addListener(this);
-        Synchronizer.initialize(serverState.getMyself());
+        Synchronizer.initialize(serverState);
 
         // try to register server state as MBean
         try {
@@ -205,7 +205,7 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
             try {
                 serverSocket.close();
             } catch (IOException e) {
-                LOG.error("Error closing connection.", e);
+                LOG.debug("Error closing connection.", e);
             }
         }
     }
