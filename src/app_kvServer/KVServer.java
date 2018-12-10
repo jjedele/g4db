@@ -5,6 +5,7 @@ import app_kvServer.gossip.GossipEventListener;
 import app_kvServer.gossip.Gossiper;
 import app_kvServer.persistence.CachedDiskStorage;
 import app_kvServer.persistence.PersistenceService;
+import app_kvServer.sync.Synchronizer;
 import common.messages.gossip.ClusterDigest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -21,6 +22,7 @@ import java.net.Socket;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 public class KVServer implements Runnable, SessionRegistry, GossipEventListener {
 
@@ -115,6 +117,7 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
 
         Gossiper.initialize(serverState.getMyself());
         Gossiper.getInstance().addListener(this);
+        Synchronizer.initialize(serverState);
 
         // try to register server state as MBean
         try {
@@ -148,7 +151,10 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
                 clientConnection.start();
             }
         } catch (IOException e) {
-            LOG.error("Error while accepting connections.", e);
+            if (running.get()) {
+                LOG.error("Error while accepting connections.", e);
+            }
+            // else: orderly shutdown
         } finally {
             cleanSocketShutdown();
         }
@@ -199,7 +205,7 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
             try {
                 serverSocket.close();
             } catch (IOException e) {
-                LOG.error("Error closing connection.", e);
+                LOG.debug("Error closing connection.", e);
             }
         }
     }
@@ -207,6 +213,12 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
     @Override
     public void clusterChanged(ClusterDigest clusterDigest) {
         LOG.info("Cluster changed: {}", clusterDigest);
+        Set<InetSocketAddress> upNodes = clusterDigest.getCluster().entrySet().stream()
+                .filter(node -> node.getValue().getStatus() == common.messages.gossip.ServerState.Status.OK)
+                .map(node -> node.getKey())
+                .collect(Collectors.toSet());
+        LOG.info("Setting alive cluster nodes to: {}", upNodes);
+        serverState.setClusterNodes(upNodes);
     }
 
 }

@@ -1,9 +1,7 @@
 package common.hash;
 
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
@@ -16,13 +14,28 @@ import java.util.*;
 public class HashRing {
     private final TreeMap<Integer, InetSocketAddress> circle = new TreeMap<Integer, InetSocketAddress>();
 
-    private final List<InetSocketAddress> nodes = new ArrayList<>();
+    /**
+     * Default constructor.
+     *
+     * Creates an empty ring.
+     */
+    public HashRing() {
+    }
+
+    /**
+     * Constructor.
+     *
+     * Creates a ring and populates it with given nodes.
+     * @param nodes Nodes
+     */
+    public HashRing(Collection<InetSocketAddress> nodes) {
+        nodes.stream().forEach(node -> circle.put(getHash(addressToString(node)), node));
+    }
 
     /**
      * Add a node to the hash ring.
      * @param node Address of the node
      */
-
     private String addressToString(InetSocketAddress node){
         return String.format("%s:%d", node.getHostString(), node.getPort());
 
@@ -120,6 +133,25 @@ public class HashRing {
     }
 
     /**
+     * Return the predecessor of given node.
+     * @param node Current node
+     * @param positions Number of positions we traverse the ring in direction of smaller values
+     * @return Predecessor node
+     */
+    public InetSocketAddress getPredecessor(InetSocketAddress node, int positions) {
+        InetSocketAddress current = node;
+
+        for (int i = 0; i < positions; i++) {
+            current = Optional
+                    .ofNullable(circle.lowerEntry(getHash(addressToString(current))))
+                    .orElse(circle.lastEntry())
+                    .getValue();
+        }
+
+        return current;
+    }
+
+    /**
      * Return if the hash ring contains given node.
      * @param node Node
      * @return True if contained
@@ -158,4 +190,12 @@ public class HashRing {
         }
     }
 
+    @Override
+    public String toString() {
+        StringJoiner nodeJoiner = new StringJoiner("\n", "Ring[\n", "]");
+        getNodes().forEach(node -> {
+            nodeJoiner.add(String.format("%s : %s", node, getAssignedRange(node)));
+        });
+        return nodeJoiner.toString();
+    }
 }

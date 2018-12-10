@@ -105,7 +105,6 @@ public class ProtocolTest extends TestCase {
     public void testEncodeDecodeSimpleAdminMessages()
             throws ProtocolException, IllegalAccessException, InstantiationException {
         List<Class<? extends AdminMessage>> msgTypes = Arrays.asList(
-                StartServerRequest.class,
                 StopServerRequest.class,
                 ShutDownServerRequest.class,
                 EnableWriteLockRequest.class,
@@ -207,6 +206,70 @@ public class ProtocolTest extends TestCase {
         assertTrue(decoded.getGossipMessage() instanceof ClusterDigest);
         ClusterDigest decodedDigest = (ClusterDigest) decoded.getGossipMessage();
         assertEquals(cluster, decodedDigest.getCluster());
+    }
+
+    public void testEncodeDecodeStreamMessages() throws ProtocolException {
+        long correlation = 1;
+
+        Map<InetSocketAddress, ServerState> cluster = new HashMap<>();
+        cluster.put(new InetSocketAddress("localhost", 50000),
+                new ServerState(1, 1, ServerState.Status.OK, 1));
+        cluster.put(new InetSocketAddress("localhost", 50001),
+                new ServerState(2, 2, ServerState.Status.OK, 2));
+        ClusterDigest clusterDigest = new ClusterDigest(cluster);
+
+        InetSocketAddress destination = new InetSocketAddress("localhost", 1234);
+        Range targetRange = new Range(1, 42);
+        InitiateStreamRequest initiateStreamRequest = new InitiateStreamRequest(destination, targetRange, clusterDigest);
+
+        byte[] encoded = Protocol.encode(initiateStreamRequest, correlation);
+        CorrelatedMessage decoded = Protocol.decode(encoded);
+        assertEquals(correlation, decoded.getCorrelationNumber());
+        assertTrue(decoded.hasAdminMessage());
+        InitiateStreamRequest decodedInitiationRequest = (InitiateStreamRequest) decoded.getAdminMessage();
+        assertEquals(destination, decodedInitiationRequest.getDestination());
+        assertEquals(targetRange, decodedInitiationRequest.getKeyRange());
+        assertEquals(clusterDigest, decodedInitiationRequest.getClusterDigest());
+
+        correlation++;
+
+        // ok response
+        InitiateStreamResponse okResp = new InitiateStreamResponse(true, "s1", 42, null);
+        encoded = Protocol.encode(okResp, correlation);
+        decoded = Protocol.decode(encoded);
+        assertEquals(correlation, decoded.getCorrelationNumber());
+        assertTrue(decoded.hasAdminMessage());
+        InitiateStreamResponse decodedOkResponse = (InitiateStreamResponse) decoded.getAdminMessage();
+        assertTrue(decodedOkResponse.isSuccess());
+        assertEquals("s1", decodedOkResponse.getStreamId());
+        assertEquals(42, decodedOkResponse.getNumberOfItems());
+        assertNull(decodedOkResponse.getClusterDigest());
+
+        correlation++;
+
+        // error response
+        InitiateStreamResponse errResp = new InitiateStreamResponse(false, "s2", 0, clusterDigest);
+        encoded = Protocol.encode(errResp, correlation);
+        decoded = Protocol.decode(encoded);
+        assertEquals(correlation, decoded.getCorrelationNumber());
+        assertTrue(decoded.hasAdminMessage());
+        InitiateStreamResponse decodedErrResponse = (InitiateStreamResponse) decoded.getAdminMessage();
+        assertFalse(decodedErrResponse.isSuccess());
+        assertEquals("s2", decodedErrResponse.getStreamId());
+        assertEquals(0, decodedErrResponse.getNumberOfItems());
+        assertEquals(clusterDigest, decodedErrResponse.getClusterDigest());
+
+        correlation++;
+
+        // stream complete
+        StreamCompleteMessage completeMessage = new StreamCompleteMessage("s1", targetRange);
+        encoded = Protocol.encode(completeMessage, correlation);
+        decoded = Protocol.decode(encoded);
+        assertEquals(correlation, decoded.getCorrelationNumber());
+        assertTrue(decoded.hasAdminMessage());
+        StreamCompleteMessage decodedCompleteMsg = (StreamCompleteMessage) decoded.getAdminMessage();
+        assertEquals("s1", decodedCompleteMsg.getStreamId());
+        assertEquals(targetRange, decodedCompleteMsg.getRange());
     }
 
 }

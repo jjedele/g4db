@@ -99,7 +99,7 @@ public class ServerLifecycleTest extends TestCase {
     }
 
     private void startServer() throws ClientException {
-        GenericResponse reponse = kvAdmin.start();
+        GenericResponse reponse = kvAdmin.start(true);
         assertTrue(reponse.getMessage(), reponse.isSuccess());
     }
 

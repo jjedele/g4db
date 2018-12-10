@@ -22,7 +22,7 @@ public class InteractionTest extends TestCase {
         try {
             kvClient.connect();
             kvAdmin.connect();
-            kvAdmin.start();
+            kvAdmin.start(true);
         } catch (Exception e) {
         }
     }

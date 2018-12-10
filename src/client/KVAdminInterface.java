@@ -5,6 +5,7 @@ import common.hash.NodeEntry;
 import common.hash.Range;
 import common.messages.admin.GenericResponse;
 import common.messages.admin.MaintenanceStatusResponse;
+import common.messages.gossip.ClusterDigest;
 
 import java.net.InetSocketAddress;
 import java.util.Collection;
@@ -33,10 +34,11 @@ public interface KVAdminInterface extends KVInterface {
      *
      * Metadata must be updated before this can happen.
      *
+     * @param clusterInit If true, nodes assume they are in a fresh cluster and no syncing will happen
      * @return Server response
      * @throws ClientException If something goes wrong
      */
-    GenericResponse start() throws ClientException;
+    GenericResponse start(boolean clusterInit) throws ClientException;
 
     /**
      * Stop the server.
@@ -91,5 +93,12 @@ public interface KVAdminInterface extends KVInterface {
      * @throws ClientException if something goes wrong
      */
     MaintenanceStatusResponse getMaintenanceStatus() throws ClientException;
+
+    /**
+     * Exchanges cluster information with node.
+     * @param digest Cluster information to send to the node
+     * @return The local cluster view of the node
+     */
+    ClusterDigest exchangeClusterInformation(ClusterDigest digest) throws ClientException;
 
 }

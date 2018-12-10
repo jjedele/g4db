@@ -2,10 +2,12 @@ package app_kvServer;
 
 import app_kvServer.admin.AdminTasks;
 import app_kvServer.admin.CleanUpDataTask;
+import app_kvServer.admin.DataStreamTask;
 import app_kvServer.admin.MoveDataTask;
 import app_kvServer.gossip.Gossiper;
 import app_kvServer.persistence.PersistenceException;
 import app_kvServer.persistence.PersistenceService;
+import app_kvServer.sync.Synchronizer;
 import common.CorrelatedMessage;
 import common.Protocol;
 import common.exceptions.ProtocolException;
@@ -30,6 +32,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
@@ -149,7 +152,10 @@ public class ClientConnection extends ContextPreservingThread {
         } else if (request.hasAdminMessage()) {
             return handleAdminMessage(request.getAdminMessage());
         } else if (request.hasGossipMessage()) {
-            return Gossiper.getInstance().handleIncomingDigest((ClusterDigest) request.getGossipMessage());
+            ClusterDigest incomingDigest = (ClusterDigest) request.getGossipMessage();
+            return Optional.ofNullable(incomingDigest)
+                    .map(Gossiper.getInstance()::handleIncomingDigest)
+                    .orElse(Gossiper.getInstance().getClusterDigest());
         } else {
             throw new ProtocolException("Unsupported request: " + request);
         }
@@ -161,24 +167,14 @@ public class ClientConnection extends ContextPreservingThread {
             return new DefaultKVMessage(msg.getKey(), null, KVMessage.StatusType.SERVER_STOPPED);
         }
 
-        // ensure we're responsible
-        InetSocketAddress responsibleNode = serverState.getClusterNodes().getResponsibleNode(msg.getKey());
-        if (!serverState.getMyself().equals(responsibleNode)) {
-            LOG.info("Sending client {} NOT_RESPONSIBLE message with updated nodes.");
-            List<NodeEntry> nodes = serverState.getClusterNodes().getNodes().stream()
-                    .map(address -> new NodeEntry("somenode", address, new Range(0, 1)))
-                    .collect(Collectors.toList());
-            return new DefaultKVMessage(
-                    msg.getKey(),
-                    NodeEntry.multipleToSerializableString(nodes),
-                    KVMessage.StatusType.SERVER_NOT_RESPONSIBLE);
-        }
-
         KVMessage reply;
 
         switch (msg.getStatus()) {
             case PUT:
                 reply = handlePutRequest(msg);
+                break;
+            case PUT_REPLICA:
+                reply = handlePutReplicaRequest(msg);
                 break;
             case GET:
                 reply = handleGetRequest(msg);
@@ -199,6 +195,19 @@ public class ClientConnection extends ContextPreservingThread {
         // ensure the write lock of the server is currently not enabled
         if (serverState.isWriteLockActive()) {
             return new DefaultKVMessage(msg.getKey(), null, KVMessage.StatusType.SERVER_WRITE_LOCK);
+        }
+
+        // ensure we're responsible
+        InetSocketAddress responsibleNode = serverState.getClusterNodes().getResponsibleNode(msg.getKey());
+        if (!serverState.getMyself().equals(responsibleNode)) {
+            LOG.info("Sending client {} NOT_RESPONSIBLE message with updated nodes.");
+            List<NodeEntry> nodes = serverState.getClusterNodes().getNodes().stream()
+                    .map(address -> new NodeEntry("somenode", address, new Range(0, 1)))
+                    .collect(Collectors.toList());
+            return new DefaultKVMessage(
+                    msg.getKey(),
+                    NodeEntry.multipleToSerializableString(nodes),
+                    KVMessage.StatusType.SERVER_NOT_RESPONSIBLE);
         }
 
         LOG.debug("Handling PUT request for key: {}", msg.getKey());
@@ -229,8 +238,59 @@ public class ClientConnection extends ContextPreservingThread {
         return reply;
     }
 
+    private KVMessage handlePutReplicaRequest(KVMessage msg) {
+        assert msg.getStatus() == KVMessage.StatusType.PUT_REPLICA;
+
+        // ensure the write lock of the server is currently not enabled
+        if (serverState.isWriteLockActive()) {
+            return new DefaultKVMessage(msg.getKey(), null, KVMessage.StatusType.SERVER_WRITE_LOCK);
+        }
+
+        // TODO check we're responsible
+
+        LOG.debug("Handling PUT_REPLICA request for key: {}", msg.getKey());
+
+        KVMessage reply;
+
+        try {
+            boolean insert = persistenceService.put(
+                    msg.getKey(),
+                    msg.getValue());
+
+            KVMessage.StatusType status =
+                    insert ? KVMessage.StatusType.PUT_SUCCESS : KVMessage.StatusType.PUT_UPDATE;
+
+            reply = new DefaultKVMessage(
+                    msg.getKey(),
+                    null,
+                    status);
+        } catch (PersistenceException e) {
+            LOG.error("Error handling PUT request.", e);
+
+            reply = new DefaultKVMessage(
+                    msg.getKey(),
+                    e.getMessage(),
+                    KVMessage.StatusType.PUT_ERROR);
+        }
+
+        return reply;
+    }
+
     private KVMessage handleGetRequest(KVMessage msg) {
         assert msg.getStatus() == KVMessage.StatusType.GET;
+
+        // ensure we're responsible
+        InetSocketAddress responsibleNode = serverState.getClusterNodes().getResponsibleNode(msg.getKey());
+        if (!serverState.getMyself().equals(responsibleNode)) {
+            LOG.info("Sending client {} NOT_RESPONSIBLE message with updated nodes.");
+            List<NodeEntry> nodes = serverState.getClusterNodes().getNodes().stream()
+                    .map(address -> new NodeEntry("somenode", address, new Range(0, 1)))
+                    .collect(Collectors.toList());
+            return new DefaultKVMessage(
+                    msg.getKey(),
+                    NodeEntry.multipleToSerializableString(nodes),
+                    KVMessage.StatusType.SERVER_NOT_RESPONSIBLE);
+        }
 
         LOG.debug("Handling GET request for key: {}", msg.getKey());
 
@@ -261,6 +321,19 @@ public class ClientConnection extends ContextPreservingThread {
             return new DefaultKVMessage(msg.getKey(), null, KVMessage.StatusType.SERVER_WRITE_LOCK);
         }
 
+        // ensure we're responsible
+        InetSocketAddress responsibleNode = serverState.getClusterNodes().getResponsibleNode(msg.getKey());
+        if (!serverState.getMyself().equals(responsibleNode)) {
+            LOG.info("Sending client {} NOT_RESPONSIBLE message with updated nodes.");
+            List<NodeEntry> nodes = serverState.getClusterNodes().getNodes().stream()
+                    .map(address -> new NodeEntry("somenode", address, new Range(0, 1)))
+                    .collect(Collectors.toList());
+            return new DefaultKVMessage(
+                    msg.getKey(),
+                    NodeEntry.multipleToSerializableString(nodes),
+                    KVMessage.StatusType.SERVER_NOT_RESPONSIBLE);
+        }
+
         LOG.debug("Handling DELETE request for key: {}", msg.getKey());
 
         KVMessage reply;
@@ -286,6 +359,12 @@ public class ClientConnection extends ContextPreservingThread {
 
     private AdminMessage handleAdminMessage(AdminMessage msg) {
         if (msg instanceof StartServerRequest) {
+            StartServerRequest startServerRequest = (StartServerRequest) msg;
+            if (startServerRequest.isClusterInit()) {
+                Gossiper.getInstance().setOwnState(common.messages.gossip.ServerState.Status.OK);
+            } else {
+                Synchronizer.getInstance().initiateJoin();
+            }
             serverState.setStopped(false);
             LOG.info("Admin: Started the server.");
             return GenericResponse.success();
@@ -326,6 +405,26 @@ public class ClientConnection extends ContextPreservingThread {
             return new MaintenanceStatusResponse(AdminTasks.hasActiveTask(),
                     AdminTasks.getTaskType(),
                     (int) (100 * AdminTasks.getProgress()));
+        } else if (msg instanceof InitiateStreamRequest) {
+            InitiateStreamRequest req = (InitiateStreamRequest) msg;
+            LOG.info("Admin: Initiate stream request for range {}", req.getKeyRange());
+            // TODO check cluster state
+            try {
+                DataStreamTask streamTask = DataStreamTask.create(serverState, persistenceService, req.getKeyRange(),
+                        req.getDestination());
+                AdminTasks.addTask(streamTask);
+                LOG.info("Admin: Initiated stream request: ", streamTask.getStreamId());
+                return new InitiateStreamResponse(true, streamTask.getStreamId(),
+                        streamTask.getNumberOfItemsToTransfer(), null);
+            } catch (Exception e) {
+                LOG.error("Could not instantiate data stream.", e);
+                return new InitiateStreamResponse(false, null,
+                        0, null);
+            }
+        } else if (msg instanceof StreamCompleteMessage) {
+            StreamCompleteMessage req = (StreamCompleteMessage) msg;
+            Synchronizer.getInstance().streamCompleted(req.getRange());
+            return GenericResponse.success();
         } else {
             throw new AssertionError("Admin message handler not implemented: " + msg.getClass());
         }
