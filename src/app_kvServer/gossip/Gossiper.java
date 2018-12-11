@@ -37,6 +37,7 @@ public class Gossiper {
     private final Set<InetSocketAddress> seedNodes;
     private final ScheduledThreadPoolExecutor executorService;
     private volatile ServerState.Status ownState;
+    private volatile int stateVersion;
     private final Set<InetSocketAddress> deadCandidates;
     private final Random random;
     private final Collection<GossipEventListener> eventListeners;
@@ -50,6 +51,7 @@ public class Gossiper {
         this.cluster = new HashMap<>();
         this.seedNodes = new HashSet<>();
         this.executorService = new ScheduledThreadPoolExecutor(5);
+        this.stateVersion = 1;
         this.ownState = ServerState.Status.STOPPED;
         this.deadCandidates = new HashSet<>();
         this.random = new Random();
@@ -118,7 +120,10 @@ public class Gossiper {
      * @param ownState State
      */
     public void setOwnState(ServerState.Status ownState) {
-        this.ownState = ownState;
+        synchronized (this.ownState) {
+            this.stateVersion++;
+            this.ownState = ownState;
+        }
     }
 
     /**
@@ -256,7 +261,9 @@ public class Gossiper {
 
             // update our own state
             // TODO DECOMISSIONED states should always prevail (as long generation is the same)
-            cluster.put(myself, new ServerState(generation, heartbeat, ownState, heartbeat));
+            synchronized (ownState) {
+                cluster.put(myself, new ServerState(generation, heartbeat, ownState, stateVersion));
+            }
             ClusterDigest digest = new ClusterDigest(cluster);
             Collection<InetSocketAddress> gossipTargets = selectGossipTargets();
             LOG.debug("Gossiping digest {} to targets {}", digest, gossipTargets);

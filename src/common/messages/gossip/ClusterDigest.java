@@ -35,9 +35,10 @@ public class ClusterDigest implements GossipMessage {
     public String toString() {
         StringJoiner joiner = new StringJoiner("\n", "[ClusterState:\n", "\n]");
         for (Map.Entry<InetSocketAddress, ServerState> entry : cluster.entrySet()) {
-            joiner.add(String.format("%s (%s): Gen.: %d, Hbeat: %d",
+            joiner.add(String.format("%s (%s): Gen.: %d, Hbeat: %d, Sver: %d",
                     entry.getKey(), entry.getValue().getStatus(),
-                    entry.getValue().getGeneration(), entry.getValue().getHeartBeat()));
+                    entry.getValue().getGeneration(), entry.getValue().getHeartBeat(),
+                    entry.getValue().getStateVersion()));
         }
         return joiner.toString();
     }

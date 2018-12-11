@@ -89,7 +89,7 @@ public class Synchronizer {
                 .map(entry -> entry.getKey())
                 .collect(Collectors.toList());
 
-        Gossiper.getInstance().setOwnState(common.messages.gossip.ServerState.Status.JOINING);
+        Gossiper.getInstance().setOwnState(ServerState.Status.JOINING);
         HashRing ring = new HashRing(aliveNodes);
         serverState.setClusterNodes(aliveNodes);
 
@@ -109,7 +109,6 @@ public class Synchronizer {
         logJoiner.add(String.format("R1: %s from %s", firstReplicaRange, firstPredecessor));
         logJoiner.add(String.format("R2: %s from %s", secondReplicaRange, secondPredecessor));
 
-        Gossiper.getInstance().setOwnState(ServerState.Status.JOINING);
         LOG.info("Join initiated: {}", logJoiner.toString());
 
         CompletableFuture<Void> prTransfer = CompletableFuture.runAsync(new StreamSentinel(myRange, Arrays.asList(currentMyRangeOwner)));
