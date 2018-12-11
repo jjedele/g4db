@@ -237,42 +237,68 @@ public class DefaultKVAdmin implements KVAdmin {
         client.KVAdmin candidateAdmin = adminClients.get(nodeToRemove);
         LOG.info("Removing node from cluster: {}", nodeToRemove);
 
-        // transfer data from node to be removed to successor
-        InetSocketAddress successor = hashRing.getSuccessor(nodeToRemove);
-        Range assignedRange = hashRing.getAssignedRange(nodeToRemove);
-
-        hashRing.removeNode(nodeToRemove);
+        CompletableFuture<Void> stopFuture =
+                seedUpdatedStateIntoCluster(nodeToRemove, ServerState.Status.DECOMMISSIONED);
 
         try {
-            // we need to update the meta data for the successor before starting the transfer so that it accepts the entries
-            adminClients.get(successor).updateMetadata(activeNodeEntries());
-            candidateAdmin.enableWriteLock();
-            moveDataAndWaitForCompletion(nodeToRemove, successor, assignedRange);
-            candidateAdmin.disableWriteLock();
-        } catch (ClientException e) {
-            // break and let the admin fix it
-            throw new RuntimeException("Could not transfer data from removed node.", e);
+            stopFuture.get();
+        } catch (InterruptedException | ExecutionException e) {
+            LOG.error("Could not decomission node=" + nodeToRemove, e);
         }
 
-        // shutdown the node
-        try {
-            candidateAdmin.shutDown();
-        } catch (ClientException e) {
-            LOG.error("Could not shutdown node: " + nodeToRemove, e);
-        }
+        candidateAdmin.disconnect();
         adminClients.remove(nodeToRemove);
+    }
 
-        // notify other nodes about the updated cluster
-        Collection<NodeEntry> clusterNodes = activeNodeEntries();
-        LOG.info("Informing nodes about new cluster state: {}", clusterNodes);
-        adminClients.values().stream()
-                .forEach(adminClient -> {
-                    try {
-                        adminClient.updateMetadata(clusterNodes);
-                    } catch (ClientException e) {
-                        LOG.error("Could not updated metadata on node " + adminClient.getNodeAddress(), e);
+    private CompletableFuture<Void> seedUpdatedStateIntoCluster(InetSocketAddress targetNode, ServerState.Status state) {
+        // broadcast state change to target and two other random nodes
+        List<InetSocketAddress> candidates = new ArrayList<>(adminClients.keySet());
+        Collections.shuffle(candidates);
+        candidates = candidates.stream().limit(2).collect(Collectors.toList());
+        candidates.add(targetNode);
+        List<client.KVAdmin> candidateAdmins = candidates.stream().map(adminClients::get).collect(Collectors.toList());
+
+        // get latest state version
+        List<CompletableFuture<ClusterDigest>> inFlightRequests = candidateAdmins.stream()
+                .map(admin -> admin.communicationModule()
+                    .send(ClusterDigest.empty())
+                    .thenApply(reply -> (ClusterDigest) reply.getGossipMessage()))
+                .collect(Collectors.toList());
+
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            // ignore
+        }
+
+        ServerState latestState = inFlightRequests.stream()
+                .map(resultFuture -> {
+                    if (resultFuture.isDone()) {
+                        return resultFuture.getNow(null);
+                    } else {
+                        resultFuture.cancel(true);
+                        return null;
                     }
-                });
+                })
+                .map(digest -> Optional.ofNullable(digest.getCluster().get(targetNode)))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .max(ServerState::compareTo)
+                .get();
+
+        LOG.debug("Latest state for {}: {}", targetNode, latestState);
+
+        // inject new state into cluster
+        Map<InetSocketAddress, ServerState> updatedCluster = new HashMap<>();
+        updatedCluster.put(targetNode, new ServerState(latestState.getGeneration(),
+                latestState.getHeartBeat(), state, latestState.getStateVersion() + 1));
+        ClusterDigest seedMessage = new ClusterDigest(updatedCluster);
+
+        CompletableFuture[] inFlights = candidateAdmins.stream()
+                .map(admin -> admin.communicationModule().send(seedMessage))
+                .toArray(CompletableFuture[]::new);
+
+        return CompletableFuture.allOf(inFlights);
     }
 
     private Collection<NodeEntry> activeNodeEntries() {

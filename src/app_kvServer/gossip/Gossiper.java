@@ -37,7 +37,7 @@ public class Gossiper {
     private final Set<InetSocketAddress> seedNodes;
     private final ScheduledThreadPoolExecutor executorService;
     private volatile ServerState.Status ownState;
-    private volatile int stateVersion;
+    private volatile long stateVersion;
     private final Set<InetSocketAddress> deadCandidates;
     private final Random random;
     private final Collection<GossipEventListener> eventListeners;
@@ -119,11 +119,9 @@ public class Gossiper {
      * Set the state of this node.
      * @param ownState State
      */
-    public void setOwnState(ServerState.Status ownState) {
-        synchronized (this.ownState) {
-            this.stateVersion++;
-            this.ownState = ownState;
-        }
+    public synchronized void setOwnState(ServerState.Status ownState) {
+        this.stateVersion++;
+        this.ownState = ownState;
     }
 
     /**
@@ -176,8 +174,14 @@ public class Gossiper {
         toMerge.retainAll(cluster.keySet());
 
         Set<InetSocketAddress> othersMoreRecent = toMerge.stream()
-                .filter(node -> cluster.get(node).compareTo(otherCluster.get(node)) < 0 && !node.equals(myself))
+                .filter(node -> cluster.get(node).compareTo(otherCluster.get(node)) < 0)
                 .collect(Collectors.toSet());
+
+        if (othersMoreRecent.contains(myself)) {
+            ServerState myUpdatedState = otherCluster.get(myself);
+            ownState = myUpdatedState.getStatus();
+            stateVersion = myUpdatedState.getStateVersion();
+        }
 
         Map<InetSocketAddress, ServerState.Status> changes = new HashMap<>();
 
@@ -261,7 +265,7 @@ public class Gossiper {
 
             // update our own state
             // TODO DECOMISSIONED states should always prevail (as long generation is the same)
-            synchronized (ownState) {
+            synchronized (Gossiper.this) {
                 cluster.put(myself, new ServerState(generation, heartbeat, ownState, stateVersion));
             }
             ClusterDigest digest = new ClusterDigest(cluster);

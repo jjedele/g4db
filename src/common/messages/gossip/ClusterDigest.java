@@ -52,4 +52,13 @@ public class ClusterDigest implements GossipMessage {
             return false;
         }
     }
+
+    /**
+     * Return an empty cluster digest.
+     * @return
+     */
+    public static ClusterDigest empty() {
+        return new ClusterDigest(new HashMap<>());
+    }
+
 }

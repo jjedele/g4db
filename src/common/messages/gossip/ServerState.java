@@ -72,10 +72,10 @@ public class ServerState implements Comparable<ServerState> {
     public int compareTo(ServerState other) {
         if (this.generation != other.generation) {
             return Long.signum(this.generation - other.generation);
-        } else if (this.heartBeat != other.heartBeat) {
-            return Long.signum(this.heartBeat - other.heartBeat);
-        } else {
+        } else if (this.stateVersion != other.stateVersion) {
             return Long.signum(this.stateVersion - other.stateVersion);
+        } else {
+            return Long.signum(this.heartBeat - other.heartBeat);
         }
     }
 
