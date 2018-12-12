@@ -37,7 +37,9 @@ public interface KVMessage extends Message {
         SERVER_NOT_RESPONSIBLE(0xC),
 
         /** Request to store a value for a replica */
-        PUT_REPLICA(0xD);
+        PUT_REPLICA(0xD),
+        /** Request to delete a value for a replica */
+        DELETE_REPLICA(0xE);
 
         public final byte opCode;
 

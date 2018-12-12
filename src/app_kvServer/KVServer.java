@@ -133,6 +133,8 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
         try {
             PersistenceService persistenceService =
                     new CachedDiskStorage(dataDirectory, cacheSize, cacheStrategy);
+            ReplicatingDataRequestHandler dataRequestHandler = new ReplicatingDataRequestHandler(serverState, persistenceService, 3);
+            Gossiper.getInstance().addListener(dataRequestHandler);
 
             serverSocket = new ServerSocket(port);
             LOG.info("Server listening on port {}.", port);
@@ -146,7 +148,8 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
                         clientSocket,
                         persistenceService,
                         this,
-                        serverState);
+                        serverState,
+                        dataRequestHandler);
 
                 clientConnection.start();
             }

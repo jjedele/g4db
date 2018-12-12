@@ -264,6 +264,9 @@ public final class Protocol {
         sb.append(encodeRange(req.getKeyRange()));
         sb.append(UNIT_SEPARATOR);
 
+        sb.append(Boolean.toString(req.isMoveReplicationTarget()));
+        sb.append(UNIT_SEPARATOR);
+
         sb.append(encodeClusterDigest(req.getClusterDigest()));
         sb.append(UNIT_SEPARATOR);
     }
@@ -371,9 +374,10 @@ public final class Protocol {
         } else if (type == InitiateStreamRequest.TYPE_CODE) {
             InetSocketAddress target = decodeAddress(scanner.next());
             Range range = decodeRange(scanner.next());
+            boolean isSwitchReplicationTarget = Boolean.parseBoolean(scanner.next());
             ClusterDigest digest = decodeClusterDigest(scanner.next());
 
-            return new InitiateStreamRequest(target, range, digest);
+            return new InitiateStreamRequest(target, range, digest, isSwitchReplicationTarget);
         } else if (type == InitiateStreamResponse.TYPE_CODE) {
             boolean success = Boolean.parseBoolean(scanner.next());
             String streamId = scanner.next();

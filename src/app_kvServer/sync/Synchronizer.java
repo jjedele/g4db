@@ -155,8 +155,9 @@ public class Synchronizer {
                 communicationModule = new CommunicationModule(source, 100);
                 communicationModule.start();
 
+                // TODO real
                 InitiateStreamRequest request = new InitiateStreamRequest(myself, range,
-                        Gossiper.getInstance().getClusterDigest());
+                        Gossiper.getInstance().getClusterDigest(), false);
 
                 CompletableFuture<Void> streamEnd = new CompletableFuture<>();
                 streamFutures.put(range, streamEnd);

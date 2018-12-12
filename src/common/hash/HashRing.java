@@ -92,7 +92,6 @@ public class HashRing {
         }
         //In case the predecessor node has a higher position than the actual server
         return circle.firstEntry().getValue();
-        //test
     }
 
     /**
@@ -149,6 +148,36 @@ public class HashRing {
         }
 
         return current;
+    }
+
+    /**
+     * Return the number of positions target comes after reference.
+     * @param reference Reference node
+     * @param target Target node
+     * @return Number of positions
+     */
+    public int findSuccessorNumber(InetSocketAddress reference, InetSocketAddress target) {
+        if (!contains(reference) || !contains(target)) {
+            throw new IllegalArgumentException(String.format(
+                    "Both reference (%s) and target (%s) must be contained in ring (%s)",
+                    reference,
+                    target,
+                    getNodes()));
+        }
+
+        InetSocketAddress current = reference;
+        int successorNumber = 0;
+        while (!current.equals(target)) {
+            successorNumber++;
+            int currentKey = getHash(addressToString(current));
+
+            current = Optional
+                    .ofNullable(circle.higherEntry(currentKey))
+                    .orElse(circle.firstEntry())
+                    .getValue();
+        }
+
+        return successorNumber;
     }
 
     /**

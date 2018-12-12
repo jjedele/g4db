@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class CommunicationModule {
 
     private final static Logger LOG = LogManager.getLogger(CommunicationModule.class);
+    private final static int DEFAULT_BUFFER_SIZE = 1000;
     private final static byte RECORD_SEPARATOR = 0x1e;
 
     private final InetSocketAddress address;
@@ -45,6 +46,15 @@ public class CommunicationModule {
     private Socket socket;
     private WriterThread writerThread;
     private ReaderThread readerThread;
+
+    /**
+     * Constructor.
+     *
+     * @param address Server address to connect against
+     */
+    public CommunicationModule(InetSocketAddress address) {
+        this(address, DEFAULT_BUFFER_SIZE);
+    }
 
     /**
      * Constructor.
@@ -100,6 +110,14 @@ public class CommunicationModule {
         terminated.set(true);
         shutDownClient();
         this.running = false;
+    }
+
+    /**
+     * Get address to which this communication module is bound.
+     * @return The address
+     */
+    public InetSocketAddress getAddress() {
+        return address;
     }
 
     /**

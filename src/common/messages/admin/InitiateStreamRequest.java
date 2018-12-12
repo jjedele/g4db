@@ -16,17 +16,23 @@ public class InitiateStreamRequest extends AdminMessage {
     private final InetSocketAddress destination;
     private final Range keyRange;
     private final ClusterDigest clusterDigest;
+    private final boolean moveReplicationTarget;
 
     /**
      * Constructor.
      * @param destination Recipient for the data
      * @param keyRange Range of keys that is streamed
      * @param clusterDigest Current knowledge of the cluster
+     * @param moveReplicationTarget Make requester new replication target for moved data
      */
-    public InitiateStreamRequest(InetSocketAddress destination, Range keyRange, ClusterDigest clusterDigest) {
+    public InitiateStreamRequest(InetSocketAddress destination,
+                                 Range keyRange,
+                                 ClusterDigest clusterDigest,
+                                 boolean moveReplicationTarget) {
         this.destination = destination;
         this.keyRange = keyRange;
         this.clusterDigest = clusterDigest;
+        this.moveReplicationTarget = moveReplicationTarget;
     }
 
     /**
@@ -53,4 +59,11 @@ public class InitiateStreamRequest extends AdminMessage {
         return clusterDigest;
     }
 
+    /**
+     * Return if the request should switch the target ranges replication target
+     * @return
+     */
+    public boolean isMoveReplicationTarget() {
+        return moveReplicationTarget;
+    }
 }
