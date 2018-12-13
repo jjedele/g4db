@@ -32,11 +32,13 @@ public class Synchronizer {
     private static final Logger LOG = LogManager.getLogger(Synchronizer.class);
     private static Synchronizer instance;
 
+    private final int replicationFactor;
     private final InetSocketAddress myself;
     private final app_kvServer.ServerState serverState;
     private final Map<Range, CompletableFuture<Void>> streamFutures;
 
     private Synchronizer(app_kvServer.ServerState serverState) {
+        this.replicationFactor = 3;
         this.myself = serverState.getMyself();
         this.serverState = serverState;
         this.streamFutures = new ConcurrentHashMap<>();
@@ -72,19 +74,9 @@ public class Synchronizer {
      * Join the local node into an existing cluster.
      */
     public CompletableFuture<Void> initiateJoin() {
-        LOG.info("Initiating join.");
-        ClusterDigest clusterDigest = Gossiper.getInstance().getClusterDigest();
+        LOG.info("Initiating joining process for node={}.", myself);
 
-        // FIXME this will always contain ourself
-        while (clusterDigest.getCluster().isEmpty()) {
-            try {
-                LOG.info("Waiting for cluster data to arrive.");
-                Thread.sleep(2000);
-                clusterDigest = Gossiper.getInstance().getClusterDigest();
-            } catch (InterruptedException e) {
-                LOG.warn("Could not wait.", e);
-            }
-        }
+        ClusterDigest clusterDigest = Gossiper.getInstance().getClusterDigest();
 
         Collection<InetSocketAddress> aliveNodes = clusterDigest.getCluster().entrySet().stream()
                 .filter(entry -> entry.getValue().getStatus() != ServerState.Status.DECOMMISSIONED)
@@ -98,35 +90,20 @@ public class Synchronizer {
         // assemble synchronization plan
         SynchronizationPlan synchronizationPlan = new SynchronizationPlan("JOIN");
 
-        InetSocketAddress firstPredecessor = ring.getPredecessor(myself, 1);
-        InetSocketAddress secondPredecessor = ring.getPredecessor(myself, 2);
-        InetSocketAddress firstSuccessor = ring.getNthSuccessor(myself, 1);
-        InetSocketAddress secondSuccessor = ring.getNthSuccessor(myself, 2);
-        InetSocketAddress thirdSuccessor = ring.getNthSuccessor(myself, 3);
+        IntStream
+                .range(0, replicationFactor)
+                .forEach(predecessorNo -> {
+                    // for 0 that's us
+                    InetSocketAddress predecessor = ring.getPredecessor(myself, predecessorNo);
+                    Range wantedKeyRange = ring.getAssignedRange(predecessor);
+                    InetSocketAddress[] sources = IntStream
+                            .rangeClosed(-predecessorNo, replicationFactor-predecessorNo)
+                            .filter(i -> i != 0) // can't copy anything from our own node
+                            .mapToObj(i -> ring.traverse(myself, i))
+                            .toArray(InetSocketAddress[]::new);
 
-        // primary range
-        Range ownRange = ring.getAssignedRange(myself);
-        synchronizationPlan.add(
-                ownRange,
-                firstSuccessor,
-                secondSuccessor,
-                thirdSuccessor);
-
-        // first replica
-        Range firstReplicaRange = ring.getAssignedRange(firstPredecessor);
-        synchronizationPlan.add(
-                firstReplicaRange,
-                firstPredecessor,
-                firstSuccessor,
-                secondSuccessor);
-
-        // second replica
-        Range secondReplicaRange = ring.getAssignedRange(secondPredecessor);
-        synchronizationPlan.add(
-                secondReplicaRange,
-                secondPredecessor,
-                firstPredecessor,
-                firstSuccessor);
+                    synchronizationPlan.add(wantedKeyRange, sources);
+                });
 
         CompletableFuture<Void> synchronization = executeSynchronizationPlan(synchronizationPlan)
                 .whenComplete((result, exc) -> Gossiper.getInstance().setOwnState(ServerState.Status.OK));
@@ -150,7 +127,6 @@ public class Synchronizer {
 
         Optional<SynchronizationPlan> synchronizationPlanOption = Optional.empty();
 
-        final int replicationFactor = 3;
         int successorNumber = ring.findSuccessorNumber(decommissionedNode, myself);
 
         if (successorNumber <= replicationFactor) {

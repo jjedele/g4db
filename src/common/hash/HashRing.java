@@ -151,6 +151,24 @@ public class HashRing {
     }
 
     /**
+     * Traverse the ring from given start by specified amount of positions.
+     *
+     * If positions is positive the ring will be traversed in positive direction,
+     * if it is negative it will be traversed in negative direction.
+     *
+     * @param start Node to start traversal from
+     * @param positions Number of nodes to hop, may be positive or negative
+     * @return The reached node
+     */
+    public InetSocketAddress traverse(InetSocketAddress start, int positions) {
+        if (positions < 0) {
+            return getPredecessor(start, -positions);
+        } else {
+            return getNthSuccessor(start, positions);
+        }
+    }
+
+    /**
      * Return the number of positions target comes after reference.
      * @param reference Reference node
      * @param target Target node
