@@ -227,9 +227,14 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
     @Override
     public void nodeChanged(InetSocketAddress node, common.messages.gossip.ServerState.Status newState) {
         LOG.debug("Node {} changed to {}", node, newState);
-        if (serverState.getMyself().equals(node) && newState == common.messages.gossip.ServerState.Status.DECOMMISSIONED) {
-            LOG.info("Shutting down because received DECOMMIOSSIONED message.");
-            requestShutDown();
+        if (newState == common.messages.gossip.ServerState.Status.DECOMMISSIONED) {
+            LOG.warn("Received DECOMMISSIONED message for node {}", node);
+            if (serverState.getMyself().equals(node)) {
+                LOG.info("Shutting down because received DECOMMIOSSIONED message.");
+                requestShutDown();
+            } else {
+                Synchronizer.getInstance().initiateDecommissioning(node);
+            }
         }
     }
 }

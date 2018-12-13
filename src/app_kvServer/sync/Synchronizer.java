@@ -19,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * The Synchronizer is responsible for bootstrapping and redistributing data after a node was
@@ -74,6 +75,7 @@ public class Synchronizer {
         LOG.info("Initiating join.");
         ClusterDigest clusterDigest = Gossiper.getInstance().getClusterDigest();
 
+        // FIXME this will always contain ourself
         while (clusterDigest.getCluster().isEmpty()) {
             try {
                 LOG.info("Waiting for cluster data to arrive.");
@@ -93,33 +95,102 @@ public class Synchronizer {
         HashRing ring = new HashRing(aliveNodes);
         serverState.setClusterNodes(aliveNodes);
 
-        // primary range takeover
-        Range myRange = ring.getAssignedRange(myself);
-        InetSocketAddress currentMyRangeOwner = ring.getSuccessor(myself);
+        // assemble synchronization plan
+        SynchronizationPlan synchronizationPlan = new SynchronizationPlan("JOIN");
 
-        // replicas
         InetSocketAddress firstPredecessor = ring.getPredecessor(myself, 1);
-        Range firstReplicaRange = ring.getAssignedRange(firstPredecessor);
-
         InetSocketAddress secondPredecessor = ring.getPredecessor(myself, 2);
+        InetSocketAddress firstSuccessor = ring.getNthSuccessor(myself, 1);
+        InetSocketAddress secondSuccessor = ring.getNthSuccessor(myself, 2);
+        InetSocketAddress thirdSuccessor = ring.getNthSuccessor(myself, 3);
+
+        // primary range
+        Range ownRange = ring.getAssignedRange(myself);
+        synchronizationPlan.add(
+                ownRange,
+                firstSuccessor,
+                secondSuccessor,
+                thirdSuccessor);
+
+        // first replica
+        Range firstReplicaRange = ring.getAssignedRange(firstPredecessor);
+        synchronizationPlan.add(
+                firstReplicaRange,
+                firstPredecessor,
+                firstSuccessor,
+                secondSuccessor);
+
+        // second replica
         Range secondReplicaRange = ring.getAssignedRange(secondPredecessor);
+        synchronizationPlan.add(
+                secondReplicaRange,
+                secondPredecessor,
+                firstPredecessor,
+                firstSuccessor);
 
-        StringJoiner logJoiner = new StringJoiner("\n", "JoinPlan[\n", "]");
-        logJoiner.add(String.format("PR: %s from %s", myRange, currentMyRangeOwner));
-        logJoiner.add(String.format("R1: %s from %s", firstReplicaRange, firstPredecessor));
-        logJoiner.add(String.format("R2: %s from %s", secondReplicaRange, secondPredecessor));
+        CompletableFuture<Void> synchronization = executeSynchronizationPlan(synchronizationPlan)
+                .whenComplete((result, exc) -> Gossiper.getInstance().setOwnState(ServerState.Status.OK));
 
-        LOG.info("Join initiated: {}", logJoiner.toString());
+        return synchronization;
+    }
 
-        CompletableFuture<Void> prTransfer = CompletableFuture.runAsync(new StreamSentinel(myRange, Arrays.asList(currentMyRangeOwner)));
-        CompletableFuture<Void> r1Transfer = CompletableFuture.runAsync(new StreamSentinel(firstReplicaRange, Arrays.asList(firstPredecessor)));
-        CompletableFuture<Void> r2Transfer = CompletableFuture.runAsync(new StreamSentinel(secondReplicaRange, Arrays.asList(secondPredecessor)));
+    public CompletableFuture<Void> initiateDecommissioning(InetSocketAddress decommissionedNode) {
+        LOG.info("Initiating decommissioning process for node={}", decommissionedNode);
 
-        CompletableFuture<Void> allTransfers = CompletableFuture.allOf(prTransfer, r1Transfer, r2Transfer);
+        ClusterDigest clusterDigest = Gossiper.getInstance().getClusterDigest();
+        Set<InetSocketAddress> consideredNodes = clusterDigest.getCluster().entrySet().stream()
+                .filter(entry -> entry.getValue().getStatus() != ServerState.Status.DECOMMISSIONED)
+                .map(entry -> entry.getKey())
+                .collect(Collectors.toSet());
 
-        allTransfers = allTransfers.whenComplete((result, exc) -> Gossiper.getInstance().setOwnState(ServerState.Status.OK));
+        // need the decommissioned node in here to reallocate the data
+        consideredNodes.add(decommissionedNode);
 
-        return allTransfers;
+        HashRing ring = new HashRing(consideredNodes);
+
+        Optional<SynchronizationPlan> synchronizationPlanOption = Optional.empty();
+
+        final int replicationFactor = 3;
+        int successorNumber = ring.findSuccessorNumber(decommissionedNode, myself);
+
+        if (successorNumber <= replicationFactor) {
+            // we're impacted by the decommissioning
+
+            SynchronizationPlan synchronizationPlan =
+                    new SynchronizationPlan("DECOMMISSION_TAKEOVER_SUCCESSOR_" + successorNumber);
+
+            Range missingRange = ring.getAssignedRange(ring.getPredecessor(myself, replicationFactor));
+
+            InetSocketAddress[] sources = IntStream
+                    .rangeClosed(1, replicationFactor)
+                    .map(i -> replicationFactor - i + 1) // reverse to get priorities right
+                    .mapToObj(predecessorNo -> ring.getPredecessor(myself, predecessorNo))
+                    .filter(node -> !decommissionedNode.equals(node))
+                    .toArray(InetSocketAddress[]::new);
+
+            synchronizationPlan.add(
+                    missingRange,
+                    sources);
+
+            synchronizationPlanOption = Optional.of(synchronizationPlan);
+        }
+
+        return synchronizationPlanOption
+                .map(this::executeSynchronizationPlan)
+                .orElseGet(() -> CompletableFuture.completedFuture(null));
+    }
+
+    private CompletableFuture<Void> executeSynchronizationPlan(SynchronizationPlan synchronizationPlan) {
+        LOG.info("Executing synchronization for reason={}:\n{}",
+                synchronizationPlan.getReason(), synchronizationPlan);
+
+        CompletableFuture[] inProgressStreams = synchronizationPlan.getDataPartitions().entrySet().stream()
+                .filter(e -> !e.getValue().get(0).equals(myself))
+                .map(e -> new StreamSentinel(e.getKey(), e.getValue()))
+                .map(stream -> CompletableFuture.runAsync(stream))
+                .toArray(CompletableFuture[]::new);
+
+        return CompletableFuture.allOf(inProgressStreams);
     }
 
     /**
