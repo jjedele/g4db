@@ -213,11 +213,12 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
         }
     }
 
+    // TODO this can be removed
     @Override
     public void clusterChanged(ClusterDigest clusterDigest) {
         LOG.info("Cluster changed: {}", clusterDigest);
         Set<InetSocketAddress> upNodes = clusterDigest.getCluster().entrySet().stream()
-                .filter(node -> node.getValue().getStatus() == common.messages.gossip.ServerState.Status.OK)
+                .filter(node -> node.getValue().getStatus().isParticipating())
                 .map(node -> node.getKey())
                 .collect(Collectors.toSet());
         LOG.info("Setting alive cluster nodes to: {}", upNodes);

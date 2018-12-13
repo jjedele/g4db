@@ -131,6 +131,7 @@ public class Synchronizer {
 
         if (successorNumber <= replicationFactor) {
             // we're impacted by the decommissioning
+            Gossiper.getInstance().setOwnState(ServerState.Status.REBALANCING);
 
             SynchronizationPlan synchronizationPlan =
                     new SynchronizationPlan("DECOMMISSION_TAKEOVER_SUCCESSOR_" + successorNumber);
@@ -153,6 +154,9 @@ public class Synchronizer {
 
         return synchronizationPlanOption
                 .map(this::executeSynchronizationPlan)
+                .map(future -> future.whenComplete((result, exc) -> {
+                    Gossiper.getInstance().setOwnState(ServerState.Status.OK);
+                }))
                 .orElseGet(() -> CompletableFuture.completedFuture(null));
     }
 

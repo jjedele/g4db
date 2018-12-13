@@ -8,8 +8,17 @@ public class ServerState implements Comparable<ServerState> {
     public enum Status {
         STOPPED,
         OK,
+        REBALANCING,
         JOINING,
-        DECOMMISSIONED
+        DECOMMISSIONED;
+
+        /**
+         * Return if a node with this state participates actively in the cluster.
+         * @return
+         */
+        public boolean isParticipating() {
+            return this == OK || this == REBALANCING;
+        }
     }
 
     private final long generation;

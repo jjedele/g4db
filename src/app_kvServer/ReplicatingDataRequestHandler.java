@@ -87,7 +87,7 @@ public class ReplicatingDataRequestHandler implements DataRequestHandler, Gossip
     @Override
     public void clusterChanged(ClusterDigest clusterDigest) {
         Set<InetSocketAddress> aliveNodes = clusterDigest.getCluster().entrySet().stream()
-                .filter(e -> e.getValue().getStatus() == ServerState.Status.OK)
+                .filter(e -> e.getValue().getStatus().isParticipating())
                 .map(e -> e.getKey())
                 .collect(Collectors.toSet());
 
