@@ -16,6 +16,8 @@ import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 /**
@@ -139,22 +141,25 @@ public class DefaultKVAdmin implements KVAdmin {
         final Collection<InetSocketAddress> seedNodes = candidates.stream()
                 .map(server -> server.address)
                 .collect(Collectors.toSet());
-        candidates.stream()
-                .map(serverInfo -> {
-                    Optional<client.KVAdmin> adminClient = Optional.empty();
-                    try {
-                        adminClient = Optional.of(initializeNode(serverInfo, cacheSize, displacementStrategy, seedNodes));
-                    } catch (IOException | InterruptedException | ClientException e) {
-                        LOG.error("Could not start node.", e);
-                    }
-                    return adminClient;
-                })
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .forEach(adminClient -> {
-                    adminClients.put(adminClient.getNodeAddress(), adminClient);
-                    hashRing.addNode(adminClient.getNodeAddress());
-                });
+
+        List<CompletableFuture<Optional<client.KVAdmin>>> inProgressInits = candidates.stream()
+                .map(serverInfo -> CompletableFuture.supplyAsync(() ->
+                        supplyNode(serverInfo, cacheSize, displacementStrategy, seedNodes)))
+                .collect(Collectors.toList());
+
+        try {
+            CompletableFuture
+                    .allOf(inProgressInits.toArray(new CompletableFuture[] {}))
+                    .get(10, TimeUnit.SECONDS);
+
+            inProgressInits.stream()
+                    .map(future -> future.getNow(Optional.empty()))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .forEach(client -> adminClients.put(client.getNodeAddress(), client));
+        } catch (InterruptedException | TimeoutException | ExecutionException e) {
+            LOG.error("Could not initialize cluster.", e);
+        }
     }
 
     @Override
@@ -330,10 +335,22 @@ public class DefaultKVAdmin implements KVAdmin {
         }
     }
 
+    private static Optional<client.KVAdmin> supplyNode(ServerInfo serverInfo,
+                                                       int cacheSize,
+                                                       CacheReplacementStrategy displacementStrategy,
+                                                       Collection<InetSocketAddress> seedNodes) {
+        try {
+            return Optional.of(initializeNode(serverInfo, cacheSize, displacementStrategy, seedNodes));
+        } catch (IOException | InterruptedException | ClientException e) {
+            LOG.error("Could not initialize node.", e);
+            return Optional.empty();
+        }
+    }
+
     private static client.KVAdmin initializeNode(ServerInfo serverInfo,
-                                                   int cacheSize,
-                                                   CacheReplacementStrategy displacementStrategy,
-                                                   Collection<InetSocketAddress> seedNodes)
+                                                 int cacheSize,
+                                                 CacheReplacementStrategy displacementStrategy,
+                                                 Collection<InetSocketAddress> seedNodes)
             throws IOException, InterruptedException, ClientException {
         // FIXME for now we assume this directory is the same for all nodes
         File workingDir = new File(System.getProperty("user.dir"));
