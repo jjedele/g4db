@@ -242,20 +242,20 @@ public class DefaultKVAdmin implements KVAdmin {
         client.KVAdmin candidateAdmin = adminClients.get(nodeToRemove);
         LOG.info("Removing node from cluster: {}", nodeToRemove);
 
-        CompletableFuture<Void> stopFuture =
+        CompletableFuture<Object> stopFuture =
                 seedUpdatedStateIntoCluster(nodeToRemove, ServerState.Status.DECOMMISSIONED);
 
         try {
-            stopFuture.get();
-        } catch (InterruptedException | ExecutionException e) {
-            LOG.error("Could not decomission node=" + nodeToRemove, e);
+            stopFuture.get(10, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            LOG.error("Could not decommission node=" + nodeToRemove, e);
         }
 
         candidateAdmin.disconnect();
         adminClients.remove(nodeToRemove);
     }
 
-    private CompletableFuture<Void> seedUpdatedStateIntoCluster(InetSocketAddress targetNode, ServerState.Status state) {
+    private CompletableFuture<Object> seedUpdatedStateIntoCluster(InetSocketAddress targetNode, ServerState.Status state) {
         // broadcast state change to target and two other random nodes
         List<InetSocketAddress> candidates = new ArrayList<>(adminClients.keySet());
         Collections.shuffle(candidates);
@@ -303,7 +303,7 @@ public class DefaultKVAdmin implements KVAdmin {
                 .map(admin -> admin.communicationModule().send(seedMessage))
                 .toArray(CompletableFuture[]::new);
 
-        return CompletableFuture.allOf(inFlights);
+        return CompletableFuture.anyOf(inFlights);
     }
 
     private Collection<NodeEntry> activeNodeEntries() {

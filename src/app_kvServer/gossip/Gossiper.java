@@ -188,7 +188,7 @@ public class Gossiper {
         LOG.debug("Cluster: {}", cluster);
         for (GossipEventListener listener : eventListeners) {
             for (InetSocketAddress node : toAdd) {
-                listener.nodeAdded(node);
+                listener.nodeAdded(node, otherCluster.get(node).getStatus());
             }
 
             for (Map.Entry<InetSocketAddress, ServerState.Status> change : changes.entrySet()) {

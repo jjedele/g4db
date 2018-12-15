@@ -19,8 +19,9 @@ public interface GossipEventListener {
     /**
      * Called when a new node is detected.
      * @param node The new node
+     * @param newState State of the added node
      */
-    default void nodeAdded(InetSocketAddress node) {}
+    default void nodeAdded(InetSocketAddress node, ServerState.Status newState) {}
 
     /**
      * Called when a state change for a node is detected.
