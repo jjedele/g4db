@@ -89,5 +89,22 @@ public class HashRingTest extends TestCase {
 
     }
 
+    public void testFindSuccessorNumber() {
+        HashRing hashRing = new TestHashRing();
+
+        InetSocketAddress node1 = new InetSocketAddress("localhost", 1);
+        InetSocketAddress node2 = new InetSocketAddress("localhost", 5);
+        InetSocketAddress node3 = new InetSocketAddress("localhost", 8);
+        InetSocketAddress node4 = new InetSocketAddress("localhost", 11);
+        hashRing.addNode(node1);
+        hashRing.addNode(node2);
+        hashRing.addNode(node3);
+        hashRing.addNode(node4);
+
+        assertEquals(0, hashRing.findSuccessorNumber(node1, node1));
+        assertEquals(3, hashRing.findSuccessorNumber(node1, node4));
+        assertEquals(2, hashRing.findSuccessorNumber(node3, node1));
+    }
+
 
 }

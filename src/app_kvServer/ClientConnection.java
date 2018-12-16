@@ -5,17 +5,13 @@ import app_kvServer.admin.CleanUpDataTask;
 import app_kvServer.admin.DataStreamTask;
 import app_kvServer.admin.MoveDataTask;
 import app_kvServer.gossip.Gossiper;
-import app_kvServer.persistence.PersistenceException;
 import app_kvServer.persistence.PersistenceService;
 import app_kvServer.sync.Synchronizer;
 import common.CorrelatedMessage;
 import common.Protocol;
 import common.exceptions.ProtocolException;
-import common.hash.NodeEntry;
 import common.hash.Range;
-import common.messages.DefaultKVMessage;
 import common.messages.ExceptionMessage;
-import common.messages.KVMessage;
 import common.messages.Message;
 import common.messages.admin.*;
 import common.messages.gossip.ClusterDigest;
@@ -28,13 +24,10 @@ import org.apache.logging.log4j.ThreadContext;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 /**
  * A ClientConnection represents an active session with a client application.
@@ -47,6 +40,7 @@ public class ClientConnection extends ContextPreservingThread {
 
     private final AtomicBoolean running;
     private final PersistenceService persistenceService;
+    private final DataRequestHandler dataRequestHandler;
     private final SessionRegistry sessionRegistry;
     private final ServerState serverState;
 
@@ -64,12 +58,14 @@ public class ClientConnection extends ContextPreservingThread {
     public ClientConnection(Socket clientSocket,
                             PersistenceService persistenceService,
                             SessionRegistry sessionRegistry,
-                            ServerState serverState) {
+                            ServerState serverState,
+                            DataRequestHandler dataRequestHandler) {
         this.socket = clientSocket;
         this.running = new AtomicBoolean(false);
         this.persistenceService = persistenceService;
         this.sessionRegistry = sessionRegistry;
         this.serverState = serverState;
+        this.dataRequestHandler = dataRequestHandler;
     }
 
     /**
@@ -108,7 +104,7 @@ public class ClientConnection extends ContextPreservingThread {
                     CorrelatedMessage request = Protocol.decode(incoming);
                     correlationNumber = request.getCorrelationNumber();
                     response = handleIncomingMessage(request);
-                } catch (ProtocolException e) {
+                } catch (Exception e) {
                     LOG.error("Protocol exception.", e);
                     response = new ExceptionMessage(e);
                 }
@@ -148,7 +144,7 @@ public class ClientConnection extends ContextPreservingThread {
         ThreadContext.put("correlation", Long.toUnsignedString(request.getCorrelationNumber()));
 
         if (request.hasKVMessage()) {
-            return handleIncomingKVRequest(request.getKVMessage());
+            return dataRequestHandler.handle(request.getKVMessage());
         } else if (request.hasAdminMessage()) {
             return handleAdminMessage(request.getAdminMessage());
         } else if (request.hasGossipMessage()) {
@@ -159,202 +155,6 @@ public class ClientConnection extends ContextPreservingThread {
         } else {
             throw new ProtocolException("Unsupported request: " + request);
         }
-    }
-
-    private KVMessage handleIncomingKVRequest(KVMessage msg) throws ProtocolException {
-        // ensure the server is currently not stopped and return appropriate message otherwise
-        if (serverState.isStopped()) {
-            return new DefaultKVMessage(msg.getKey(), null, KVMessage.StatusType.SERVER_STOPPED);
-        }
-
-        KVMessage reply;
-
-        switch (msg.getStatus()) {
-            case PUT:
-                reply = handlePutRequest(msg);
-                break;
-            case PUT_REPLICA:
-                reply = handlePutReplicaRequest(msg);
-                break;
-            case GET:
-                reply = handleGetRequest(msg);
-                break;
-            case DELETE:
-                reply = handleDeleteRequest(msg);
-                break;
-            default:
-                throw new ProtocolException("Unsupported request: " + msg.getStatus().name());
-        }
-
-        return reply;
-    }
-
-    private KVMessage handlePutRequest(KVMessage msg) {
-        assert msg.getStatus() == KVMessage.StatusType.PUT;
-
-        // ensure the write lock of the server is currently not enabled
-        if (serverState.isWriteLockActive()) {
-            return new DefaultKVMessage(msg.getKey(), null, KVMessage.StatusType.SERVER_WRITE_LOCK);
-        }
-
-        // ensure we're responsible
-        InetSocketAddress responsibleNode = serverState.getClusterNodes().getResponsibleNode(msg.getKey());
-        if (!serverState.getMyself().equals(responsibleNode)) {
-            LOG.info("Sending client {} NOT_RESPONSIBLE message with updated nodes.");
-            List<NodeEntry> nodes = serverState.getClusterNodes().getNodes().stream()
-                    .map(address -> new NodeEntry("somenode", address, new Range(0, 1)))
-                    .collect(Collectors.toList());
-            return new DefaultKVMessage(
-                    msg.getKey(),
-                    NodeEntry.multipleToSerializableString(nodes),
-                    KVMessage.StatusType.SERVER_NOT_RESPONSIBLE);
-        }
-
-        LOG.debug("Handling PUT request for key: {}", msg.getKey());
-
-        KVMessage reply;
-
-        try {
-            boolean insert = persistenceService.put(
-                    msg.getKey(),
-                    msg.getValue());
-
-            KVMessage.StatusType status =
-                    insert ? KVMessage.StatusType.PUT_SUCCESS : KVMessage.StatusType.PUT_UPDATE;
-
-            reply = new DefaultKVMessage(
-                    msg.getKey(),
-                    null,
-                    status);
-        } catch (PersistenceException e) {
-            LOG.error("Error handling PUT request.", e);
-
-            reply = new DefaultKVMessage(
-                    msg.getKey(),
-                    e.getMessage(),
-                    KVMessage.StatusType.PUT_ERROR);
-        }
-
-        return reply;
-    }
-
-    private KVMessage handlePutReplicaRequest(KVMessage msg) {
-        assert msg.getStatus() == KVMessage.StatusType.PUT_REPLICA;
-
-        // ensure the write lock of the server is currently not enabled
-        if (serverState.isWriteLockActive()) {
-            return new DefaultKVMessage(msg.getKey(), null, KVMessage.StatusType.SERVER_WRITE_LOCK);
-        }
-
-        // TODO check we're responsible
-
-        LOG.debug("Handling PUT_REPLICA request for key: {}", msg.getKey());
-
-        KVMessage reply;
-
-        try {
-            boolean insert = persistenceService.put(
-                    msg.getKey(),
-                    msg.getValue());
-
-            KVMessage.StatusType status =
-                    insert ? KVMessage.StatusType.PUT_SUCCESS : KVMessage.StatusType.PUT_UPDATE;
-
-            reply = new DefaultKVMessage(
-                    msg.getKey(),
-                    null,
-                    status);
-        } catch (PersistenceException e) {
-            LOG.error("Error handling PUT request.", e);
-
-            reply = new DefaultKVMessage(
-                    msg.getKey(),
-                    e.getMessage(),
-                    KVMessage.StatusType.PUT_ERROR);
-        }
-
-        return reply;
-    }
-
-    private KVMessage handleGetRequest(KVMessage msg) {
-        assert msg.getStatus() == KVMessage.StatusType.GET;
-
-        // ensure we're responsible
-        InetSocketAddress responsibleNode = serverState.getClusterNodes().getResponsibleNode(msg.getKey());
-        if (!serverState.getMyself().equals(responsibleNode)) {
-            LOG.info("Sending client {} NOT_RESPONSIBLE message with updated nodes.");
-            List<NodeEntry> nodes = serverState.getClusterNodes().getNodes().stream()
-                    .map(address -> new NodeEntry("somenode", address, new Range(0, 1)))
-                    .collect(Collectors.toList());
-            return new DefaultKVMessage(
-                    msg.getKey(),
-                    NodeEntry.multipleToSerializableString(nodes),
-                    KVMessage.StatusType.SERVER_NOT_RESPONSIBLE);
-        }
-
-        LOG.debug("Handling GET request for key: {}", msg.getKey());
-
-        KVMessage reply;
-
-        try {
-            reply = persistenceService
-                    .get(msg.getKey())
-                    .map(value -> new DefaultKVMessage(msg.getKey(), value, KVMessage.StatusType.GET_SUCCESS))
-                    .orElse(new DefaultKVMessage(msg.getKey(), "key not found", KVMessage.StatusType.GET_ERROR));
-        } catch (PersistenceException e) {
-            LOG.error("Error handling GET request.", e);
-
-            reply = new DefaultKVMessage(
-                    msg.getKey(),
-                    e.getMessage(),
-                    KVMessage.StatusType.GET_ERROR);
-        }
-
-        return reply;
-    }
-
-    private KVMessage handleDeleteRequest(KVMessage msg) {
-        assert msg.getStatus() == KVMessage.StatusType.DELETE;
-
-        // ensure the write lock of the server is currently not enabled
-        if (serverState.isWriteLockActive()) {
-            return new DefaultKVMessage(msg.getKey(), null, KVMessage.StatusType.SERVER_WRITE_LOCK);
-        }
-
-        // ensure we're responsible
-        InetSocketAddress responsibleNode = serverState.getClusterNodes().getResponsibleNode(msg.getKey());
-        if (!serverState.getMyself().equals(responsibleNode)) {
-            LOG.info("Sending client {} NOT_RESPONSIBLE message with updated nodes.");
-            List<NodeEntry> nodes = serverState.getClusterNodes().getNodes().stream()
-                    .map(address -> new NodeEntry("somenode", address, new Range(0, 1)))
-                    .collect(Collectors.toList());
-            return new DefaultKVMessage(
-                    msg.getKey(),
-                    NodeEntry.multipleToSerializableString(nodes),
-                    KVMessage.StatusType.SERVER_NOT_RESPONSIBLE);
-        }
-
-        LOG.debug("Handling DELETE request for key: {}", msg.getKey());
-
-        KVMessage reply;
-
-        try {
-            persistenceService.delete(msg.getKey());
-
-            reply = new DefaultKVMessage(
-                    msg.getKey(),
-                    msg.getValue(),
-                    KVMessage.StatusType.DELETE_SUCCESS);
-        } catch (PersistenceException e) {
-            LOG.error("Error handling DELETE request.", e);
-
-            reply = new DefaultKVMessage(
-                    msg.getKey(),
-                    e.getMessage(),
-                    KVMessage.StatusType.DELETE_ERROR);
-        }
-
-        return reply;
     }
 
     private AdminMessage handleAdminMessage(AdminMessage msg) {

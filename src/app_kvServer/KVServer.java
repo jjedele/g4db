@@ -32,11 +32,15 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
     private final int cacheSize;
     private final File dataDirectory;
     private final CacheReplacementStrategy cacheStrategy;
+    private final int replicationFactor;
+
     private final Set<ClientConnection> activeSessions;
     private final ServerState serverState;
 
     private ServerSocket serverSocket;
     private AtomicBoolean running;
+
+    private CleanUpWorker cleanUpWorker;
 
     /**
      * Entry point for the server.
@@ -100,6 +104,8 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
         this.port = port;
         this.cacheSize = cacheSize;
         this.cacheStrategy = cacheStrategy;
+        this.replicationFactor = 3;
+
         this.activeSessions = new HashSet<>();
         this.dataDirectory = dataDirectory;
         this.running = new AtomicBoolean(false);
@@ -134,6 +140,13 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
             PersistenceService persistenceService =
                     new CachedDiskStorage(dataDirectory, cacheSize, cacheStrategy);
 
+            this.cleanUpWorker = new CleanUpWorker(serverState.getMyself(), persistenceService,
+                    10, 60, replicationFactor);
+            this.cleanUpWorker.start();
+
+            ReplicatingDataRequestHandler dataRequestHandler = new ReplicatingDataRequestHandler(serverState, persistenceService, 3);
+            Gossiper.getInstance().addListener(dataRequestHandler);
+
             serverSocket = new ServerSocket(port);
             LOG.info("Server listening on port {}.", port);
 
@@ -146,7 +159,8 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
                         clientSocket,
                         persistenceService,
                         this,
-                        serverState);
+                        serverState,
+                        dataRequestHandler);
 
                 clientConnection.start();
             }
@@ -165,6 +179,10 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
      */
     public void stop() {
         this.running.set(false);
+
+        if (cleanUpWorker != null) {
+            cleanUpWorker.interrupt();
+        }
 
         for (ClientConnection session : activeSessions) {
             session.terminate();
@@ -210,15 +228,31 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
         }
     }
 
+    // TODO this can be removed
     @Override
     public void clusterChanged(ClusterDigest clusterDigest) {
         LOG.info("Cluster changed: {}", clusterDigest);
+        cleanUpWorker.reportChange();
         Set<InetSocketAddress> upNodes = clusterDigest.getCluster().entrySet().stream()
-                .filter(node -> node.getValue().getStatus() == common.messages.gossip.ServerState.Status.OK)
+                .filter(node -> node.getValue().getStatus().isParticipating())
                 .map(node -> node.getKey())
                 .collect(Collectors.toSet());
         LOG.info("Setting alive cluster nodes to: {}", upNodes);
         serverState.setClusterNodes(upNodes);
+    }
+
+    @Override
+    public void nodeChanged(InetSocketAddress node, common.messages.gossip.ServerState.Status newState) {
+        LOG.debug("Node={} changed to state={}", node, newState);
+        if (newState == common.messages.gossip.ServerState.Status.DECOMMISSIONED) {
+            LOG.warn("Received DECOMMISSIONED message for node {}", node);
+            if (serverState.getMyself().equals(node)) {
+                LOG.info("Shutting down because received DECOMMISSIONED message.");
+                requestShutDown();
+            } else {
+                Synchronizer.getInstance().initiateDecommissioning(node);
+            }
+        }
     }
 
 }

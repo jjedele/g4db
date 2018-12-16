@@ -92,7 +92,6 @@ public class HashRing {
         }
         //In case the predecessor node has a higher position than the actual server
         return circle.firstEntry().getValue();
-        //test
     }
 
     /**
@@ -149,6 +148,54 @@ public class HashRing {
         }
 
         return current;
+    }
+
+    /**
+     * Traverse the ring from given start by specified amount of positions.
+     *
+     * If positions is positive the ring will be traversed in positive direction,
+     * if it is negative it will be traversed in negative direction.
+     *
+     * @param start Node to start traversal from
+     * @param positions Number of nodes to hop, may be positive or negative
+     * @return The reached node
+     */
+    public InetSocketAddress traverse(InetSocketAddress start, int positions) {
+        if (positions < 0) {
+            return getPredecessor(start, -positions);
+        } else {
+            return getNthSuccessor(start, positions);
+        }
+    }
+
+    /**
+     * Return the number of positions target comes after reference.
+     * @param reference Reference node
+     * @param target Target node
+     * @return Number of positions
+     */
+    public int findSuccessorNumber(InetSocketAddress reference, InetSocketAddress target) {
+        if (!contains(reference) || !contains(target)) {
+            throw new IllegalArgumentException(String.format(
+                    "Both reference (%s) and target (%s) must be contained in ring (%s)",
+                    reference,
+                    target,
+                    getNodes()));
+        }
+
+        InetSocketAddress current = reference;
+        int successorNumber = 0;
+        while (!current.equals(target)) {
+            successorNumber++;
+            int currentKey = getHash(addressToString(current));
+
+            current = Optional
+                    .ofNullable(circle.higherEntry(currentKey))
+                    .orElse(circle.firstEntry())
+                    .getValue();
+        }
+
+        return successorNumber;
     }
 
     /**

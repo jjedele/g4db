@@ -220,7 +220,7 @@ public class ProtocolTest extends TestCase {
 
         InetSocketAddress destination = new InetSocketAddress("localhost", 1234);
         Range targetRange = new Range(1, 42);
-        InitiateStreamRequest initiateStreamRequest = new InitiateStreamRequest(destination, targetRange, clusterDigest);
+        InitiateStreamRequest initiateStreamRequest = new InitiateStreamRequest(destination, targetRange, clusterDigest, true);
 
         byte[] encoded = Protocol.encode(initiateStreamRequest, correlation);
         CorrelatedMessage decoded = Protocol.decode(encoded);
@@ -230,6 +230,7 @@ public class ProtocolTest extends TestCase {
         assertEquals(destination, decodedInitiationRequest.getDestination());
         assertEquals(targetRange, decodedInitiationRequest.getKeyRange());
         assertEquals(clusterDigest, decodedInitiationRequest.getClusterDigest());
+        assertTrue(decodedInitiationRequest.isMoveReplicationTarget());
 
         correlation++;
 

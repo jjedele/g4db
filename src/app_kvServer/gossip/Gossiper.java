@@ -36,7 +36,6 @@ public class Gossiper {
     private final Map<InetSocketAddress, ServerState> cluster;
     private final Set<InetSocketAddress> seedNodes;
     private final ScheduledThreadPoolExecutor executorService;
-    private volatile ServerState.Status ownState;
     private final Set<InetSocketAddress> deadCandidates;
     private final Random random;
     private final Collection<GossipEventListener> eventListeners;
@@ -50,11 +49,13 @@ public class Gossiper {
         this.cluster = new HashMap<>();
         this.seedNodes = new HashSet<>();
         this.executorService = new ScheduledThreadPoolExecutor(5);
-        this.ownState = ServerState.Status.STOPPED;
         this.deadCandidates = new HashSet<>();
         this.random = new Random();
         this.eventListeners = new HashSet<>();
         this.gossipIntervalSeconds = 2;
+
+        cluster.put(myself,
+                new ServerState(generation, heartbeat, ServerState.Status.STOPPED, 1));
     }
 
     /**
@@ -106,19 +107,13 @@ public class Gossiper {
     }
 
     /**
-     * Return the current state of this node.
-     * @return State
-     */
-    public ServerState.Status getOwnState() {
-        return ownState;
-    }
-
-    /**
      * Set the state of this node.
      * @param ownState State
      */
-    public void setOwnState(ServerState.Status ownState) {
-        this.ownState = ownState;
+    public synchronized void setOwnState(ServerState.Status ownState) {
+        Map<InetSocketAddress, ServerState> singletonCluster = new HashMap<>();
+        singletonCluster.put(myself, ownState(ownState));
+        handleIncomingDigest(new ClusterDigest(singletonCluster));
     }
 
     /**
@@ -171,8 +166,12 @@ public class Gossiper {
         toMerge.retainAll(cluster.keySet());
 
         Set<InetSocketAddress> othersMoreRecent = toMerge.stream()
-                .filter(node -> cluster.get(node).compareTo(otherCluster.get(node)) < 0 && !node.equals(myself))
+                .filter(node -> cluster.get(node).compareTo(otherCluster.get(node)) < 0)
                 .collect(Collectors.toSet());
+
+//        Set<InetSocketAddress> oursMoreRecent = toMerge.stream()
+//                .filter(node -> cluster.get(node).compareTo(otherCluster.get(node)) > 0)
+//                .collect(Collectors.toSet());
 
         Map<InetSocketAddress, ServerState.Status> changes = new HashMap<>();
 
@@ -185,16 +184,11 @@ public class Gossiper {
             cluster.put(node, remoteState);
         });
 
-        // TODO we could reduce the traffic a little by only sending back what the other really needs
-        //Set<InetSocketAddress> oursMoreRecent = toMerge.stream()
-        //        .filter(node -> cluster.get(node).compareTo(otherCluster.get(node)) > 0)
-        //        .collect(Collectors.toSet());
-
         // handle event listeners
         LOG.debug("Cluster: {}", cluster);
         for (GossipEventListener listener : eventListeners) {
             for (InetSocketAddress node : toAdd) {
-                listener.nodeAdded(node);
+                listener.nodeAdded(node, otherCluster.get(node).getStatus());
             }
 
             for (Map.Entry<InetSocketAddress, ServerState.Status> change : changes.entrySet()) {
@@ -248,16 +242,30 @@ public class Gossiper {
         return targets;
     }
 
+    private synchronized ServerState ownState(ServerState.Status overwrite) {
+        ServerState.Status newStatus = Optional
+                .ofNullable(overwrite)
+                .orElse(cluster.get(myself).getStatus());
+        long newStatusVersion = Optional
+                .ofNullable(cluster.get(myself))
+                .map(ServerState::getStateVersion)
+                .orElse(1l);
+        if (overwrite != null) {
+            newStatusVersion++;
+        }
+        heartbeat = System.currentTimeMillis() - generation;
+        return new ServerState(generation, heartbeat, newStatus, newStatusVersion);
+    }
+
     private class GossipTask implements Runnable {
         @Override
         public void run() {
             ThreadContext.put("serverPort", Integer.toString(myself.getPort()));
-            heartbeat = System.currentTimeMillis() - generation;
 
             // update our own state
-            // TODO DECOMISSIONED states should always prevail (as long generation is the same)
-            cluster.put(myself, new ServerState(generation, heartbeat, ownState, heartbeat));
+            cluster.put(myself, ownState(null));
             ClusterDigest digest = new ClusterDigest(cluster);
+
             Collection<InetSocketAddress> gossipTargets = selectGossipTargets();
             LOG.debug("Gossiping digest {} to targets {}", digest, gossipTargets);
 
