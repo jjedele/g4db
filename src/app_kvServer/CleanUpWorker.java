@@ -74,8 +74,6 @@ public class CleanUpWorker extends ContextPreservingThread {
                 LOG.info("Starting clean up");
                 CompletableFuture.runAsync(new CleanUpDataTask());
                 lastCleanUp = System.currentTimeMillis();
-            } else {
-                LOG.info("Skipping clean up. Stable={}, due={}", clusterStable, cleanUpDue);
             }
 
             try {

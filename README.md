@@ -7,21 +7,55 @@ The most awesome distributed cloud database.
 * [Java 8](https://java.com/en/download/)
 * [Apache Ant 1.10.x](https://ant.apache.org)
 
-## Building and Running
+## Documentation
 
-Below are the standard tasks:
+More detailed [architecture documentation](ARCHITECTURE.md).
 
-    ant [jar]
+### Building
+
+Build and create JARs:
+
+    ant clean build-jar
     
-Assembles a JAR `echoClient.jar`.
+This will create 3 JARs:
 
-    java -jar echoClient.jar
+* `ecs.jar`: External configuration service
+* `server.jar`: KV server
+* `client.jar`: Commandline client
 
-Executes the JAR compiled in above task.
+### Usage
 
-    ant clean
+Start the external configuration service (ECS):
 
-Removes all build artifacts.
+```
+java -jar ecs.jar
+```
+
+Init the cluster with 5 nodes (cache of size 1000 and with FIFO strategy):
+
+```
+ECS Client> init 5 1000 FIFO
+ECS Client> start
+```
+
+Add another node into the running cluster:
+
+```
+ECS Client> addNode 1000 FIFO
+```
+
+Remove an arbitrary node from the cluster:
+
+```
+ECS Client> removeNode
+```
+
+Shutdown all server nodes and exit the ECS:
+
+```
+ECS Client> shutDown
+ECS Client> exit
+```
 
 
 ## Contributing

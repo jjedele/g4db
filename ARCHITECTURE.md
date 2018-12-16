@@ -77,6 +77,39 @@ nodes with a special mode that skips all data reallocations so that the initial 
 do not do unnecessary work until they found each other.
 
 Finally all the nodes should be in `OK` state.
+
+Example:
+
+```
+ECS Client> init 5 100 FIFO
+```
+
+The server logs then will contain such logs as below at some point:
+```
+┌2018-12-16 21:31:30,067 [INFO] [app_kvServer.KVServer] - Cluster changed: [ClusterState:                                      │
+│localhost/127.0.0.1:10000 (STOPPED): Gen.: 1544992286896, Hbeat: 3163, Sver: 1                                                │
+│localhost/127.0.0.1:10001 (STOPPED): Gen.: 1544992286899, Hbeat: 3112, Sver: 1                                                │
+│localhost/127.0.0.1:10002 (STOPPED): Gen.: 1544992286901, Hbeat: 3125, Sver: 1                                                │
+│localhost/127.0.0.1:10003 (STOPPED): Gen.: 1544992288671, Hbeat: 1087, Sver: 1                                                │
+│localhost/127.0.0.1:10004 (STOPPED): Gen.: 1544992288684, Hbeat: 1093, Sver: 1                                                │
+└] [{client=/127.0.0.1:57639, correlation=3163, serverPort=10002}]
+```
+
+Next we start the cluster:
+```
+ECS Client> start
+```
+
+And the updated state should start to reflect in the logs:
+```
+┌2018-12-16 21:34:14,018 [INFO] [app_kvServer.KVServer] - Cluster changed: [ClusterState:                                      │
+│localhost/127.0.0.1:10000 (OK): Gen.: 1544992286896, Hbeat: 165168, Sver: 2                                                   │
+│localhost/127.0.0.1:10001 (OK): Gen.: 1544992286899, Hbeat: 167117, Sver: 2                                                   │
+│localhost/127.0.0.1:10002 (OK): Gen.: 1544992286901, Hbeat: 165129, Sver: 2                                                   │
+│localhost/127.0.0.1:10003 (OK): Gen.: 1544992288671, Hbeat: 165088, Sver: 2                                                   │
+│localhost/127.0.0.1:10004 (OK): Gen.: 1544992288684, Hbeat: 165251, Sver: 2                                                   │
+└] [{client=/127.0.0.1:58410, correlation=167117, serverPort=10003}]
+```
    
 #### Node Join
 
@@ -97,6 +130,27 @@ nodes is provided for the new node to start gossiping with. The initial state is
    * Switch their replication targets accordingly
    * Start including the new node into cluster updates they send out to clients
    
+Example:
+
+Add two more nodes:
+```
+ECS Client> addNode 100 FIFO
+ECS Client> addNode 100 FIFO
+```
+
+They show up in the logs first as `JOINING` and then at some point as `OK`:
+```
+┌2018-12-16 21:51:01,611 [INFO] [app_kvServer.KVServer] - Cluster changed: [ClusterState:                                      │
+│localhost/127.0.0.1:10000 (OK): Gen.: 1544993220456, Hbeat: 241152, Sver: 2                                                   │
+│localhost/127.0.0.1:10001 (OK): Gen.: 1544993220455, Hbeat: 239151, Sver: 2                                                   │
+│localhost/127.0.0.1:10002 (OK): Gen.: 1544993220471, Hbeat: 241137, Sver: 2                                                   │
+│localhost/127.0.0.1:10003 (OK): Gen.: 1544993222363, Hbeat: 237112, Sver: 2                                                   │
+│localhost/127.0.0.1:10004 (OK): Gen.: 1544993222363, Hbeat: 239111, Sver: 2                                                   │
+│localhost/127.0.0.1:10005 (OK): Gen.: 1544993426922, Hbeat: 33073, Sver: 3                                                    │
+│localhost/127.0.0.1:10006 (JOINING): Gen.: 1544993459450, Hbeat: 1077, Sver: 2                                                │
+└] [{client=/127.0.0.1:61869, correlation=241137, serverPort=10000}]
+```
+   
 #### Node Decommissioning
 
 Nodes can leave the cluster either because requested by an administrator or because of failure.
@@ -115,3 +169,25 @@ The process looks as follows:
 This _hard_ decommissioning process reduces the replication factor for data even in the
 case a node is decommissioned orderly. A cleaner hand-off for that scenario could be implemented
 in the future.
+
+Example:
+
+Remove a random node from the cluster:
+```
+ECS Client> removeNode
+```
+
+The removed node will stay in the cluster as _tombstone_ with state `DECOMMISSIONED`. Impacted
+nodes will switch the state to `REBALANCING`, resync data they need and then switch their
+state back to `OK`.
+```
+┌2018-12-16 22:00:07,492 [INFO] [app_kvServer.KVServer] - Cluster changed: [ClusterState:                                      │
+│localhost/127.0.0.1:10000 (OK): Gen.: 1544993220456, Hbeat: 785168, Sver: 4                                                   │
+│localhost/127.0.0.1:10001 (OK): Gen.: 1544993220455, Hbeat: 785165, Sver: 4                                                   │
+│localhost/127.0.0.1:10002 (OK): Gen.: 1544993220471, Hbeat: 785153, Sver: 2                                                   │
+│localhost/127.0.0.1:10003 (DECOMMISSIONED): Gen.: 1544993222363, Hbeat: 779126, Sver: 3                                       │
+│localhost/127.0.0.1:10004 (OK): Gen.: 1544993222363, Hbeat: 785128, Sver: 2                                                   │
+│localhost/127.0.0.1:10005 (REBALANCING): Gen.: 1544993426922, Hbeat: 578706, Sver: 4                                          │
+│localhost/127.0.0.1:10006 (OK): Gen.: 1544993459450, Hbeat: 545089, Sver: 3                                                   │
+└] [{client=/127.0.0.1:65089, connection=localhost/127.0.0.1:10005, server=localhost/127.0.0.1:10005, serverPort=10004}]
+```
