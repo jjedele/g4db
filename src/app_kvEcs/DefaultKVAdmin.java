@@ -10,6 +10,7 @@ import common.messages.gossip.ClusterDigest;
 import common.messages.gossip.ServerState;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -18,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
 import java.util.stream.Collectors;
 
 /**
@@ -59,13 +61,23 @@ public class DefaultKVAdmin implements KVAdmin {
         }
     }
 
+
     private class FailureDetector implements Runnable {
 
-        private final int samplingSize = 2;
+        private int samplingSize = 2;
         private final int pauseMs = 2000;
+
+        private double threshold = 16.0;
+        private double minStdDeviationMillis = 500;
+        private long acceptableHeartbeatPauseMillis = 0;
+        private long firstHeartbeatEstimateMillis = 500;
+
+        PhiAccrualFailureDetector phiAccrualFailureDetector = new PhiAccrualFailureDetector(threshold, samplingSize, minStdDeviationMillis, acceptableHeartbeatPauseMillis, firstHeartbeatEstimateMillis);
 
         @Override
         public void run() {
+            //System.out.println(phiAccrualFailureDetector.phi());
+            //System.out.println(phiAccrualFailureDetector.isAvailable());
             while (!Thread.interrupted()) {
                 List<client.KVAdmin> admins = new ArrayList<>(adminClients.values());
                 Collections.shuffle(admins);
@@ -98,6 +110,7 @@ public class DefaultKVAdmin implements KVAdmin {
                 // TODO here we have a sample of ClusterDigests and last known heartbeat times, use for failure detection
                 LOG.info(responses);
                 Set<InetSocketAddress> allNodes = new HashSet<>();
+                Map<InetSocketAddress, FailureDetector> failureDetectorMap = new HashMap<>();
                 responses.stream().forEach(clusterDigest -> allNodes.addAll(clusterDigest.getCluster().keySet()));
                 allNodes.forEach(node -> {
                     long lastHeartbeat = responses.stream()
@@ -107,6 +120,9 @@ public class DefaultKVAdmin implements KVAdmin {
                                     .orElse(0l))
                             .max()
                             .getAsLong();
+                    // ClusterDigest
+                    phiAccrualFailureDetector.heartbeat(lastHeartbeat);
+                    System.out.println("phi " + phiAccrualFailureDetector.phi());
                     LOG.info("Last heartbeat for node {}: {}", node, lastHeartbeat);
                     // TODO we can probably use some simple form of accrual failure detector here
                     // TODO: read http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.80.7427&rep=rep1&type=pdf for an overview
@@ -386,10 +402,10 @@ public class DefaultKVAdmin implements KVAdmin {
 
     public static void main(String[] args) throws IOException, InterruptedException {
         DefaultKVAdmin kvadmin = new DefaultKVAdmin(Arrays.asList(
-                new ServerInfo("node1", "jeff", new InetSocketAddress("localhost", 50000)),
-                new ServerInfo("node2", "jeff", new InetSocketAddress("localhost", 50001)),
-                new ServerInfo("node3", "jeff", new InetSocketAddress("localhost", 50002)),
-                new ServerInfo("node4", "jeff", new InetSocketAddress("localhost", 50003))));
+                new ServerInfo("node1", "xhens", new InetSocketAddress("localhost", 50000)),
+                new ServerInfo("node2", "xhens", new InetSocketAddress("localhost", 50001)),
+                new ServerInfo("node3", "xhens", new InetSocketAddress("localhost", 50002)),
+                new ServerInfo("node4", "xhens", new InetSocketAddress("localhost", 50003))));
         kvadmin.initService(3, 45, CacheReplacementStrategy.LRU);
         kvadmin.start();
 //        Thread.sleep(20000);
