@@ -313,7 +313,7 @@ public class CommunicationModule {
         int reconnectWait = 1;
         int reconnectTries = 0;
         Exception lastException = null;
-        while (socket == null && reconnectTries < 10) {
+        while (socket == null && reconnectTries < 3) {
             try {
                 // client could get disconnected while we're in this reconnecting loop
                 if (terminated.get()) {
