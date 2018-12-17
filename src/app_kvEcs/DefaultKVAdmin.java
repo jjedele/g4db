@@ -259,20 +259,45 @@ public class DefaultKVAdmin implements KVAdmin {
         }
 
         InetSocketAddress nodeToRemove = candidates.get(0);
-        client.KVAdmin candidateAdmin = adminClients.get(nodeToRemove);
-        LOG.info("Removing node from cluster: {}", nodeToRemove);
 
-        CompletableFuture<Object> stopFuture =
-                seedUpdatedStateIntoCluster(nodeToRemove, ServerState.Status.DECOMMISSIONED);
+        CompletableFuture<Object> stopFuture = removeNode(nodeToRemove);
 
         try {
             stopFuture.get(10, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             LOG.error("Could not decommission node=" + nodeToRemove, e);
         }
+    }
 
-        candidateAdmin.disconnect();
-        adminClients.remove(nodeToRemove);
+    private CompletableFuture<Object> removeNode(InetSocketAddress nodeToBeRemoved) {
+        client.KVAdmin candidateAdmin = adminClients.get(nodeToBeRemoved);
+        LOG.info("Removing node={} from cluster", nodeToBeRemoved);
+
+        CompletableFuture<Object> stopFuture =
+                seedUpdatedStateIntoCluster(nodeToBeRemoved, ServerState.Status.DECOMMISSIONED)
+                .whenComplete((res, exc) -> {
+                    candidateAdmin.disconnect();
+                    adminClients.remove(nodeToBeRemoved);
+                });
+
+        return stopFuture;
+    }
+
+    private void replaceNode(InetSocketAddress nodeToBeReplaced) {
+        removeNode(nodeToBeReplaced)
+                .thenCompose(res -> {
+                    // wait for a while for the information to propagate through the cluster
+                    try {
+                        Thread.sleep(10000);
+                    } catch (InterruptedException e) {
+                        // ignore
+                    }
+                    return CompletableFuture.completedFuture(null);
+                })
+                .whenComplete((res, exc) -> {
+                    // TODO: use actual settings of the failed node
+                    addNode(1000, CacheReplacementStrategy.FIFO);
+                });
     }
 
     private CompletableFuture<Object> seedUpdatedStateIntoCluster(InetSocketAddress targetNode, ServerState.Status state) {
