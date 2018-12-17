@@ -150,6 +150,21 @@ They show up in the logs first as `JOINING` and then at some point as `OK`:
 │localhost/127.0.0.1:10006 (JOINING): Gen.: 1544993459450, Hbeat: 1077, Sver: 2                                                │
 └] [{client=/127.0.0.1:61869, correlation=241137, serverPort=10000}]
 ```
+
+##### Data Cleanup
+
+When a node is added to the cluster, some nodes lose reponsibility for some of the data they
+are currently holding. We are not deleting this data immediately after the cluster changes,
+but have an asynchronous cleanup worker. It will be triggered only when the cluster has been
+stable for a specified amount of time (currently 10s) to minimize the chance of losing data
+under problematic network conditions.
+
+Triggering of the clean up will show up in the server logs.
+
+```
+2018-12-16 22:31:10,749 [INFO] [app_kvServer.CleanUpWorker] - Starting clean up [{serverPort=10001}]
+2018-12-16 22:31:10,761 [INFO] [app_kvServer.CleanUpWorker] - 0 keys have been cleaned up [{serverPort=10001}]
+```
    
 #### Node Decommissioning
 
@@ -191,3 +206,12 @@ state back to `OK`.
 │localhost/127.0.0.1:10006 (OK): Gen.: 1544993459450, Hbeat: 545089, Sver: 3                                                   │
 └] [{client=/127.0.0.1:65089, connection=localhost/127.0.0.1:10005, server=localhost/127.0.0.1:10005, serverPort=10004}]
 ```
+
+#### Failure Detection
+
+ECS contains a simple accrual failure detector to detect failed nodes. The ECS continuously samples the current cluster
+state from a couple of nodes (sampling only to remain scalable) and tracks for each node if updated heartbeats are
+arriving. If there are no updated heartbeats for a node for a certain amount of time (currently 30s), the corresponding
+node will be first decommissioned. After some time (currently 10s), a new node will be added back into the cluster.
+
+Note that in the current state, ECS is a single point of failure for failure detection.
