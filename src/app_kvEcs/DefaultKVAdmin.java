@@ -72,12 +72,10 @@ public class DefaultKVAdmin implements KVAdmin {
         private long acceptableHeartbeatPauseMillis = 0;
         private long firstHeartbeatEstimateMillis = 500;
 
-        PhiAccrualFailureDetector phiAccrualFailureDetector = new PhiAccrualFailureDetector(threshold, samplingSize, minStdDeviationMillis, acceptableHeartbeatPauseMillis, firstHeartbeatEstimateMillis);
-
         @Override
         public void run() {
-            //System.out.println(phiAccrualFailureDetector.phi());
-            //System.out.println(phiAccrualFailureDetector.isAvailable());
+            Map<InetSocketAddress, SimpleFailureDetector> failureDetectorMap = new HashMap<>();
+
             while (!Thread.interrupted()) {
                 List<client.KVAdmin> admins = new ArrayList<>(adminClients.values());
                 Collections.shuffle(admins);
@@ -110,7 +108,7 @@ public class DefaultKVAdmin implements KVAdmin {
                 // TODO here we have a sample of ClusterDigests and last known heartbeat times, use for failure detection
                 LOG.info(responses);
                 Set<InetSocketAddress> allNodes = new HashSet<>();
-                Map<InetSocketAddress, FailureDetector> failureDetectorMap = new HashMap<>();
+
                 responses.stream().forEach(clusterDigest -> allNodes.addAll(clusterDigest.getCluster().keySet()));
                 allNodes.forEach(node -> {
                     long lastHeartbeat = responses.stream()
@@ -120,13 +118,19 @@ public class DefaultKVAdmin implements KVAdmin {
                                     .orElse(0l))
                             .max()
                             .getAsLong();
-                    // ClusterDigest
-                    phiAccrualFailureDetector.heartbeat(lastHeartbeat);
-                    System.out.println("phi " + phiAccrualFailureDetector.phi());
-                    LOG.info("Last heartbeat for node {}: {}", node, lastHeartbeat);
-                    // TODO we can probably use some simple form of accrual failure detector here
-                    // TODO: read http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.80.7427&rep=rep1&type=pdf for an overview
-                    // TODO: ignore the network condition stuff for now, keep it simple
+
+                    SimpleFailureDetector failureDetector = failureDetectorMap.computeIfAbsent(node, node2 -> {
+                        LOG.debug("Creating failure detector for node={}", node);
+                        return new SimpleFailureDetector(30000);
+                    });
+                    failureDetector.heartbeat(lastHeartbeat);
+                    double suspicion = failureDetector.getSuspicion();
+                    LOG.info("Last heartbeat for node {}: {}, suspicion: {}", node, lastHeartbeat, suspicion);
+
+                    if (suspicion >= 1.0) {
+                        LOG.info("Decommissioning node={} because believed as dead.", node);
+
+                    }
                 });
             }
         }
