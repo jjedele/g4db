@@ -15,10 +15,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 
 import java.util.stream.Collectors;
 
@@ -67,11 +64,6 @@ public class DefaultKVAdmin implements KVAdmin {
         private int samplingSize = 2;
         private final int pauseMs = 2000;
 
-        private double threshold = 16.0;
-        private double minStdDeviationMillis = 500;
-        private long acceptableHeartbeatPauseMillis = 0;
-        private long firstHeartbeatEstimateMillis = 500;
-
         @Override
         public void run() {
             Map<InetSocketAddress, SimpleFailureDetector> failureDetectorMap = new HashMap<>();
@@ -105,31 +97,29 @@ public class DefaultKVAdmin implements KVAdmin {
                     }
                 });
 
-                // TODO here we have a sample of ClusterDigests and last known heartbeat times, use for failure detection
-                LOG.info(responses);
                 Set<InetSocketAddress> allNodes = new HashSet<>();
 
                 responses.stream().forEach(clusterDigest -> allNodes.addAll(clusterDigest.getCluster().keySet()));
                 allNodes.forEach(node -> {
-                    long lastHeartbeat = responses.stream()
-                            .mapToLong(digest -> Optional
-                                    .ofNullable(digest.getCluster().get(node))
-                                    .map(ServerState::getHeartBeat)
-                                    .orElse(0l))
-                            .max()
-                            .getAsLong();
+                    ServerState state = mergeClusterDigests(responses).get(node);
 
                     SimpleFailureDetector failureDetector = failureDetectorMap.computeIfAbsent(node, node2 -> {
                         LOG.debug("Creating failure detector for node={}", node);
                         return new SimpleFailureDetector(30000);
                     });
-                    failureDetector.heartbeat(lastHeartbeat);
-                    double suspicion = failureDetector.getSuspicion();
-                    LOG.info("Last heartbeat for node {}: {}, suspicion: {}", node, lastHeartbeat, suspicion);
 
-                    if (suspicion >= 1.0) {
-                        LOG.info("Decommissioning node={} because believed as dead.", node);
+                    if (state.getStatus().isParticipating()) {
+                        failureDetector.heartbeat(state.getHeartBeat());
+                        double suspicion = failureDetector.getSuspicion();
+                        LOG.info("Node={}, state={}, suspicion={}", node, state, suspicion);
 
+                        if (suspicion >= 1.0) {
+                            LOG.info("Decommissioning node={} because believed as dead.", node);
+                            failureDetectorMap.remove(node);
+                            replaceNode(node);
+                        }
+                    } else {
+                        LOG.info("Node={}, state={}", node, state);
                     }
                 });
             }
@@ -143,7 +133,7 @@ public class DefaultKVAdmin implements KVAdmin {
 
     public DefaultKVAdmin(Collection<ServerInfo> servers) {
         this.servers = new ArrayList<>(servers);
-        this.adminClients = new HashMap<>();
+        this.adminClients = new ConcurrentHashMap<>();
         this.hashRing = new HashRing();
         this.failureDetectorThread = new Thread(new FailureDetector());
         failureDetectorThread.start();
@@ -284,29 +274,34 @@ public class DefaultKVAdmin implements KVAdmin {
     }
 
     private void replaceNode(InetSocketAddress nodeToBeReplaced) {
-        removeNode(nodeToBeReplaced)
-                .thenCompose(res -> {
-                    // wait for a while for the information to propagate through the cluster
-                    try {
-                        Thread.sleep(10000);
-                    } catch (InterruptedException e) {
-                        // ignore
-                    }
-                    return CompletableFuture.completedFuture(null);
-                })
-                .whenComplete((res, exc) -> {
-                    // TODO: use actual settings of the failed node
-                    addNode(1000, CacheReplacementStrategy.FIFO);
-                });
+        try {
+            removeNode(nodeToBeReplaced)
+                    .thenCompose(res -> {
+                        // wait for a while for the information to propagate through the cluster
+                        try {
+                            Thread.sleep(10000);
+                        } catch (InterruptedException e) {
+                            // ignore
+                        }
+                        return CompletableFuture.completedFuture(null);
+                    })
+                    .whenComplete((res, exc) -> {
+                        // TODO: use actual settings of the failed node
+                        addNode(1000, CacheReplacementStrategy.FIFO);
+                    })
+                    .get(30, TimeUnit.SECONDS);
+        } catch (InterruptedException | TimeoutException | ExecutionException e) {
+            LOG.error("Could not replace node=" + nodeToBeReplaced, e);
+            // TODO retry?
+        }
     }
 
     private CompletableFuture<Object> seedUpdatedStateIntoCluster(InetSocketAddress targetNode, ServerState.Status state) {
         // broadcast state change to target and two other random nodes
-        List<InetSocketAddress> candidates = new ArrayList<>(adminClients.keySet());
-        Collections.shuffle(candidates);
-        candidates = candidates.stream().limit(2).collect(Collectors.toList());
-        candidates.add(targetNode);
-        List<client.KVAdmin> candidateAdmins = candidates.stream().map(adminClients::get).collect(Collectors.toList());
+        final int gossipFanout = 2;
+        List<client.KVAdmin> candidateAdmins = new ArrayList<>(adminClients.values());
+        Collections.shuffle(candidateAdmins);
+        candidateAdmins = candidateAdmins.stream().limit(gossipFanout).collect(Collectors.toList());
 
         // get latest state version
         List<CompletableFuture<ClusterDigest>> inFlightRequests = candidateAdmins.stream()
@@ -321,20 +316,21 @@ public class DefaultKVAdmin implements KVAdmin {
             // ignore
         }
 
-        ServerState latestState = inFlightRequests.stream()
+        Collection<ClusterDigest> clusterDigests = inFlightRequests.stream()
                 .map(resultFuture -> {
+                    Optional<ClusterDigest> digestOptional = Optional.empty();
                     if (resultFuture.isDone()) {
-                        return resultFuture.getNow(null);
+                        digestOptional = Optional.ofNullable(resultFuture.getNow(null));
                     } else {
                         resultFuture.cancel(true);
-                        return null;
                     }
+                    return digestOptional;
                 })
-                .map(digest -> Optional.ofNullable(digest.getCluster().get(targetNode)))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .max(ServerState::compareTo)
-                .get();
+                .collect(Collectors.toSet());
+
+        ServerState latestState = mergeClusterDigests(clusterDigests).get(targetNode);
 
         LOG.debug("Latest state for {}: {}", targetNode, latestState);
 
@@ -349,6 +345,26 @@ public class DefaultKVAdmin implements KVAdmin {
                 .toArray(CompletableFuture[]::new);
 
         return CompletableFuture.anyOf(inFlights);
+    }
+
+    private Map<InetSocketAddress, ServerState> mergeClusterDigests(Collection<ClusterDigest> digests) {
+        Set<InetSocketAddress> allNodes = new HashSet<>();
+        digests.forEach(clusterDigest -> allNodes.addAll(clusterDigest.getCluster().keySet()));
+
+        Map<InetSocketAddress, ServerState> merged = new HashMap<>();
+        allNodes.forEach(node -> {
+            ServerState mostRecentState = digests.stream()
+                    .map(ClusterDigest::getCluster)
+                    .map(cluster -> Optional.ofNullable(cluster.get(node)))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .max(ServerState::compareTo)
+                    .get();
+
+            merged.put(node, mostRecentState);
+        });
+
+        return merged;
     }
 
     private Collection<NodeEntry> activeNodeEntries() {
