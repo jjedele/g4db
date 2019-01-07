@@ -92,4 +92,12 @@ public class CachedDiskStorage implements PersistenceService {
         return diskStorage.getKeys();
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<String> getKeys(String namespace) throws PersistenceException {
+        return diskStorage.getKeys(namespace);
+    }
+
 }

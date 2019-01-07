@@ -15,6 +15,7 @@ public class DiskStorage implements PersistenceService {
 
     private static final Logger LOG = LogManager.getLogger(DiskStorage.class);
 
+    private static final String NAMESPACE_SEPARATOR = "/";
     private static final byte END_MARKER = (byte) '\n';
 
     private final File dataDirectory;
@@ -68,7 +69,19 @@ public class DiskStorage implements PersistenceService {
 
     @Override
     public List<String> getKeys() {
-        return Stream.of(dataDirectory.listFiles())
+        return getKeys(".");
+    }
+
+    @Override
+    public List<String> getKeys(String namespace) {
+        String[] parts = namespace.split(NAMESPACE_SEPARATOR);
+        File namespaceDir = dataDirectory;
+        for (int i = 0; i < parts.length; i++) {
+            namespaceDir = new File(namespaceDir, parts[i]);
+        }
+
+        return Stream.of(namespaceDir.listFiles())
+                .filter(File::isFile)
                 .map(File::getName)
                 .collect(Collectors.toList());
     }
@@ -79,7 +92,16 @@ public class DiskStorage implements PersistenceService {
     }
 
     private File escapedFile(String key) {
-        return new File(dataDirectory, key.replaceAll(File.separator, "_"));
+        String[] parts = key.split(NAMESPACE_SEPARATOR);
+        File namespaceDir = dataDirectory;
+        for (int i = 0; i < parts.length - 1; i++) {
+            namespaceDir = new File(namespaceDir, parts[i]);
+        }
+
+        // ensure exists
+        namespaceDir.mkdirs();
+
+        return new File(namespaceDir, parts[parts.length - 1]);
     }
 
     private void ensureDataDirectoryExists() {

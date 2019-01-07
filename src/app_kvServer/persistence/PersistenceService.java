@@ -49,4 +49,12 @@ public interface PersistenceService {
      */
     List<String> getKeys() throws PersistenceException;
 
+    /**
+     * Get a list of all persisted keys in a given namespace.
+     * @param namespace Namespace to list keys for
+     * @return List of persisted keys
+     * @throws PersistenceException if something goes wrong
+     */
+    List<String> getKeys(String namespace) throws PersistenceException;
+
 }
