@@ -3,6 +3,7 @@ package app_kvServer;
 
 import app_kvServer.gossip.GossipEventListener;
 import app_kvServer.gossip.Gossiper;
+import app_kvServer.mapreduce.MapReduceRequestHandler;
 import app_kvServer.persistence.CachedDiskStorage;
 import app_kvServer.persistence.PersistenceService;
 import app_kvServer.sync.Synchronizer;
@@ -144,7 +145,10 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
                     10, 60, replicationFactor);
             this.cleanUpWorker.start();
 
-            ReplicatingDataRequestHandler dataRequestHandler = new ReplicatingDataRequestHandler(serverState, persistenceService, 3);
+            ReplicatingDataRequestHandler dataRequestHandler =
+                    new ReplicatingDataRequestHandler(serverState, persistenceService, 3);
+            MapReduceRequestHandler mapReduceRequestHandler =
+                    new MapReduceRequestHandler(persistenceService);
             Gossiper.getInstance().addListener(dataRequestHandler);
 
             serverSocket = new ServerSocket(port);
@@ -160,7 +164,8 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
                         persistenceService,
                         this,
                         serverState,
-                        dataRequestHandler);
+                        dataRequestHandler,
+                        mapReduceRequestHandler);
 
                 clientConnection.start();
             }

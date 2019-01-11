@@ -6,6 +6,8 @@ import common.hash.HashRing;
 import common.hash.NodeEntry;
 import common.messages.DefaultKVMessage;
 import common.messages.KVMessage;
+import common.messages.mapreduce.InitiateMRRequest;
+import common.messages.mapreduce.InitiateMRResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import java.net.InetSocketAddress;
@@ -90,6 +92,31 @@ public class KVStore implements KVCommInterface {
         KVMessage reply = sendAndGetReply(outgoing);
 
         return reply;
+    }
+
+    /**
+     * Initiate a map/reduce job.
+     * @param targetNamespace Namespace to write the results to.
+     * @param script Script to execute.
+     * @return ID of the job.
+     * @throws ClientException if something goes wrong.
+     */
+    public String mapReduce(String targetNamespace, String script) throws ClientException {
+        // TODO would be better to include a host name, but OK for now
+        String jobId = String.format("mr%d", System.currentTimeMillis());
+        InitiateMRRequest request = new InitiateMRRequest(jobId, targetNamespace, script, null);
+
+        CompletableFuture<InitiateMRResponse> futureResponse =
+                communicationModuleForKey(jobId)
+                        .send(request)
+                        .thenApply(reply -> (InitiateMRResponse) reply.getMRMessage());
+
+        try {
+            InitiateMRResponse response = futureResponse.get(3, TimeUnit.SECONDS);
+            return response.getId();
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new ClientException("Could not start map/reduce instance.", e);
+        }
     }
 
     /**

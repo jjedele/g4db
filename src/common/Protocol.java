@@ -10,7 +10,11 @@ import common.messages.admin.*;
 import common.messages.gossip.ServerState;
 import common.messages.gossip.ClusterDigest;
 import common.messages.gossip.GossipMessage;
+import common.messages.mapreduce.InitiateMRRequest;
+import common.messages.mapreduce.InitiateMRResponse;
+import common.messages.mapreduce.MRMessage;
 
+import javax.swing.*;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -61,6 +65,8 @@ public final class Protocol {
             encodeExceptionMessage(sb, (ExceptionMessage) msg);
         } else if (msg instanceof GossipMessage) {
             encodeGossipMessage(sb, (GossipMessage) msg);
+        } else if (msg instanceof MRMessage) {
+            encodeMRMessage(sb, (MRMessage) msg);
         } else {
             throw new AssertionError("Unsupported message class: " + msg.getClass());
         }
@@ -101,6 +107,10 @@ public final class Protocol {
             } else if (contentType == ContentType.GOSSIP) {
                 GossipMessage gossipMessage = decodeGossipMessage(scanner);
                 return new CorrelatedMessage(correlationNumber, gossipMessage);
+
+            } else if (contentType == ContentType.MAP_REDUCE) {
+                MRMessage mrMessage = decodeMRMessage(scanner);
+                return new CorrelatedMessage(correlationNumber, mrMessage);
 
             } else {
                 throw new ProtocolException("Unsupported content type: " + contentType);
@@ -301,6 +311,51 @@ public final class Protocol {
         sb.append(UNIT_SEPARATOR);
     }
 
+    private static void encodeMRMessage(StringBuilder sb, MRMessage msg) {
+        sb.append(ContentType.MAP_REDUCE);
+        sb.append(UNIT_SEPARATOR);
+
+        if (msg instanceof InitiateMRRequest) {
+            encodeInitiateMRRequest(sb, (InitiateMRRequest) msg);
+        } else if (msg instanceof InitiateMRResponse) {
+            encodeInitiateMRResponse(sb, (InitiateMRResponse) msg);
+        } else {
+            throw new RuntimeException(msg.getClass() + " not supported for encoding.");
+        }
+    }
+
+    private static void encodeInitiateMRRequest(StringBuilder sb, InitiateMRRequest msg) {
+        sb.append(InitiateMRRequest.TYPE_CODE);
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getId());
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getTargetNamespace());
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getScript());
+        sb.append(UNIT_SEPARATOR);
+
+        if (msg.getMaster() != null) {
+            sb.append(msg.getMaster());
+        }
+        sb.append(UNIT_SEPARATOR);
+    }
+
+    private static void encodeInitiateMRResponse(StringBuilder sb, InitiateMRResponse msg) {
+        sb.append(InitiateMRResponse.TYPE_CODE);
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getId());
+        sb.append(UNIT_SEPARATOR);
+
+        if (msg.getError() != null) {
+            sb.append(msg.getError());
+        }
+        sb.append(UNIT_SEPARATOR);
+    }
+
     private static KVMessage decodeKVMessage(Scanner scanner) {
         // operation type
         byte opCode = Byte.parseByte(scanner.next());
@@ -403,6 +458,43 @@ public final class Protocol {
         String encoded = scanner.next();
 
         return decodeClusterDigest(encoded);
+    }
+
+    private static MRMessage decodeMRMessage(Scanner scanner) throws ProtocolException {
+        byte type = Byte.parseByte(scanner.next());
+
+        if (type == InitiateMRRequest.TYPE_CODE) {
+            return decodeInitiateMRRequest(scanner);
+        } else if (type == InitiateMRResponse.TYPE_CODE) {
+            return decodeInitiateMRResponse(scanner);
+        } else {
+            throw new ProtocolException("Unknown map/reduce message type: " + type);
+        }
+    }
+
+    private static InitiateMRRequest decodeInitiateMRRequest(Scanner scanner) {
+        String id = scanner.next();
+        String targetNamespace = scanner.next();
+        String script = scanner.next();
+        String masterStr = scanner.next();
+
+        InetSocketAddress master = null;
+        if (masterStr != null && masterStr.length() > 0) {
+            master = decodeAddress(masterStr);
+        }
+
+        return new InitiateMRRequest(id, targetNamespace, script, master);
+    }
+
+    private static InitiateMRResponse decodeInitiateMRResponse(Scanner scanner) {
+        String id = scanner.next();
+        String error = scanner.next();
+
+        if (error != null && error.isEmpty()) {
+            error = null;
+        }
+
+        return new InitiateMRResponse(id, error);
     }
 
     private static String encodeRange(Range range) {

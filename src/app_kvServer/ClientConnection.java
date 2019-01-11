@@ -5,6 +5,7 @@ import app_kvServer.admin.CleanUpDataTask;
 import app_kvServer.admin.DataStreamTask;
 import app_kvServer.admin.MoveDataTask;
 import app_kvServer.gossip.Gossiper;
+import app_kvServer.mapreduce.MapReduceRequestHandler;
 import app_kvServer.persistence.PersistenceService;
 import app_kvServer.sync.Synchronizer;
 import common.CorrelatedMessage;
@@ -41,6 +42,7 @@ public class ClientConnection extends ContextPreservingThread {
     private final AtomicBoolean running;
     private final PersistenceService persistenceService;
     private final DataRequestHandler dataRequestHandler;
+    private final MapReduceRequestHandler mapReduceRequestHandler;
     private final SessionRegistry sessionRegistry;
     private final ServerState serverState;
 
@@ -54,18 +56,22 @@ public class ClientConnection extends ContextPreservingThread {
      * @param persistenceService Instance of {@link PersistenceService} to use
      * @param sessionRegistry Instance of {@link SessionRegistry} to register with
      * @param serverState Global server state
+     * @param dataRequestHandler Handler for data requests
+     * @param mapReduceRequestHandler Handler for map/reduce requests
      */
     public ClientConnection(Socket clientSocket,
                             PersistenceService persistenceService,
                             SessionRegistry sessionRegistry,
                             ServerState serverState,
-                            DataRequestHandler dataRequestHandler) {
+                            DataRequestHandler dataRequestHandler,
+                            MapReduceRequestHandler mapReduceRequestHandler) {
         this.socket = clientSocket;
         this.running = new AtomicBoolean(false);
         this.persistenceService = persistenceService;
         this.sessionRegistry = sessionRegistry;
         this.serverState = serverState;
         this.dataRequestHandler = dataRequestHandler;
+        this.mapReduceRequestHandler = mapReduceRequestHandler;
     }
 
     /**
@@ -152,6 +158,8 @@ public class ClientConnection extends ContextPreservingThread {
             return Optional.ofNullable(incomingDigest)
                     .map(Gossiper.getInstance()::handleIncomingDigest)
                     .orElse(Gossiper.getInstance().getClusterDigest());
+        } else if (request.hasMRMessage()) {
+            return mapReduceRequestHandler.handle(request.getMRMessage());
         } else {
             throw new ProtocolException("Unsupported request: " + request);
         }

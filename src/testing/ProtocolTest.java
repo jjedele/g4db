@@ -10,6 +10,8 @@ import common.messages.KVMessage;
 import common.messages.admin.*;
 import common.messages.gossip.ServerState;
 import common.messages.gossip.ClusterDigest;
+import common.messages.mapreduce.InitiateMRRequest;
+import common.messages.mapreduce.InitiateMRResponse;
 import junit.framework.TestCase;
 
 import java.net.InetSocketAddress;
@@ -271,6 +273,32 @@ public class ProtocolTest extends TestCase {
         StreamCompleteMessage decodedCompleteMsg = (StreamCompleteMessage) decoded.getAdminMessage();
         assertEquals("s1", decodedCompleteMsg.getStreamId());
         assertEquals(targetRange, decodedCompleteMsg.getRange());
+    }
+
+    public void testInitiateMRFlow() throws ProtocolException {
+        long correlation = 1;
+
+        InitiateMRRequest req1 = new InitiateMRRequest("mr1", "tgtNs", "foo()", new InetSocketAddress("host1", 123)
+        );
+        byte[] encoded = Protocol.encode(req1, correlation);
+        CorrelatedMessage decoded = Protocol.decode(encoded);
+
+        assertEquals(correlation, decoded.getCorrelationNumber());
+        assertTrue(decoded.hasMRMessage());
+        InitiateMRRequest decodedReq = (InitiateMRRequest) decoded.getMRMessage();
+        assertEquals("mr1", decodedReq.getId());
+        assertEquals("foo()", decodedReq.getScript());
+        assertEquals("tgtNs", decodedReq.getTargetNamespace());
+
+        correlation++;
+
+        InitiateMRResponse resp = new InitiateMRResponse("mr1", null);
+        encoded = Protocol.encode(resp, correlation);
+        decoded = Protocol.decode(encoded);
+
+        InitiateMRResponse decodedResp = (InitiateMRResponse) decoded.getMRMessage();
+        assertEquals("mr1", decodedResp.getId());
+        assertNull(decodedResp.getError());
     }
 
 }

@@ -25,4 +25,9 @@ public final class ContentType {
      */
     public static final byte GOSSIP = 0x03;
 
+    /**
+     * Map/reduce related communication.
+     */
+    public static final byte MAP_REDUCE = 0x04;
+
 }

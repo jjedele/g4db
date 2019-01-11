@@ -87,6 +87,7 @@ public class KVClient {
         this.commands.put(PutCommand.ID, PutCommand.class);
         this.commands.put(GetCommand.ID, GetCommand.class);
         this.commands.put(SetLogLevelCommand.ID, SetLogLevelCommand.class);
+        this.commands.put(MapReduceCommand.ID, MapReduceCommand.class);
     }
 
     /**
