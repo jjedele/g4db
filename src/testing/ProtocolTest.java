@@ -278,7 +278,8 @@ public class ProtocolTest extends TestCase {
     public void testInitiateMRFlow() throws ProtocolException {
         long correlation = 1;
 
-        InitiateMRRequest req1 = new InitiateMRRequest("mr1", "tgtNs", "foo()", new InetSocketAddress("host1", 123)
+        InitiateMRRequest req1 = new InitiateMRRequest("mr1", new Range(0, 0), "srcNs",
+                "tgtNs", "foo()", new InetSocketAddress("host1", 123)
         );
         byte[] encoded = Protocol.encode(req1, correlation);
         CorrelatedMessage decoded = Protocol.decode(encoded);
@@ -288,6 +289,8 @@ public class ProtocolTest extends TestCase {
         InitiateMRRequest decodedReq = (InitiateMRRequest) decoded.getMRMessage();
         assertEquals("mr1", decodedReq.getId());
         assertEquals("foo()", decodedReq.getScript());
+        assertEquals(new Range(0, 0), decodedReq.getSourceKeyRange());
+        assertEquals("srcNs", decodedReq.getSourceNamespace());
         assertEquals("tgtNs", decodedReq.getTargetNamespace());
 
         correlation++;

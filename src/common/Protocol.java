@@ -14,7 +14,6 @@ import common.messages.mapreduce.InitiateMRRequest;
 import common.messages.mapreduce.InitiateMRResponse;
 import common.messages.mapreduce.MRMessage;
 
-import javax.swing.*;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -331,6 +330,12 @@ public final class Protocol {
         sb.append(msg.getId());
         sb.append(UNIT_SEPARATOR);
 
+        sb.append(encodeRange(msg.getSourceKeyRange()));
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getSourceNamespace());
+        sb.append(UNIT_SEPARATOR);
+
         sb.append(msg.getTargetNamespace());
         sb.append(UNIT_SEPARATOR);
 
@@ -474,6 +479,11 @@ public final class Protocol {
 
     private static InitiateMRRequest decodeInitiateMRRequest(Scanner scanner) {
         String id = scanner.next();
+        Range sourceKeyRange = decodeRange(scanner.next());
+        String sourceNamespace = scanner.next();
+        if (sourceNamespace != null && sourceNamespace.isEmpty()) {
+            sourceNamespace = null;
+        }
         String targetNamespace = scanner.next();
         String script = scanner.next();
         String masterStr = scanner.next();
@@ -483,7 +493,7 @@ public final class Protocol {
             master = decodeAddress(masterStr);
         }
 
-        return new InitiateMRRequest(id, targetNamespace, script, master);
+        return new InitiateMRRequest(id, sourceKeyRange, sourceNamespace, targetNamespace, script, master);
     }
 
     private static InitiateMRResponse decodeInitiateMRResponse(Scanner scanner) {

@@ -4,6 +4,7 @@ import client.exceptions.*;
 import common.CorrelatedMessage;
 import common.hash.HashRing;
 import common.hash.NodeEntry;
+import common.hash.Range;
 import common.messages.DefaultKVMessage;
 import common.messages.KVMessage;
 import common.messages.mapreduce.InitiateMRRequest;
@@ -104,7 +105,9 @@ public class KVStore implements KVCommInterface {
     public String mapReduce(String targetNamespace, String script) throws ClientException {
         // TODO would be better to include a host name, but OK for now
         String jobId = String.format("mr%d", System.currentTimeMillis());
-        InitiateMRRequest request = new InitiateMRRequest(jobId, targetNamespace, script, null);
+        Range sourceKeyRange = new Range(0, 0); // take all for now
+        String sourceNamespace = null;
+        InitiateMRRequest request = new InitiateMRRequest(jobId, sourceKeyRange, sourceNamespace, targetNamespace, script, null);
 
         CompletableFuture<InitiateMRResponse> futureResponse =
                 communicationModuleForKey(jobId)
