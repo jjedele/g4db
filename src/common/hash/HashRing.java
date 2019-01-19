@@ -12,7 +12,7 @@ import java.util.*;
  * as little as possible when nodes are added or deleted.
  */
 public class HashRing {
-    private final TreeMap<Integer, InetSocketAddress> circle = new TreeMap<Integer, InetSocketAddress>();
+    private final TreeMap<Integer, InetSocketAddress> circle = new TreeMap<>();
 
     /**
      * Default constructor.

@@ -12,6 +12,11 @@ import java.nio.file.Paths;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Data ingestion tool for the online retail map/reduce demo.
+ *
+ * Arguments: HOST:PORT PATH_TO_DATA_FILE NUMBER_OF_RECORDS_TO_IMPORT
+ */
 public class OnlineRetailIngest {
 
     static InetSocketAddress parseAddress(String hostAndPort) {
@@ -29,20 +34,25 @@ public class OnlineRetailIngest {
     }
 
     public static void main(String[] args) throws IOException, ClientException {
-        if (args.length != 2) {
-            System.err.println("Call with: HOST:PORT PATH_TO_FILE");
+        if (args.length < 2) {
+            System.err.println("Call with: HOST:PORT PATH_TO_FILE NO_OF_ORDERS");
             System.exit(1);
         }
 
         String hostAndPort = args[0];
         String path = args[1];
 
+        int numberOfOrders = 500000;
+        if (args.length == 3) {
+            numberOfOrders = Integer.parseInt(args[2]);
+        }
+
         InetSocketAddress address = parseAddress(hostAndPort);
         Path dataFile = Paths.get(path);
 
         KVStore store = new KVStore(address.getHostString(), address.getPort());
         store.connect();
-        Files.lines(dataFile).forEach(record -> {
+        Files.lines(dataFile).limit(numberOfOrders).forEach(record -> {
             String key = parseInvoiceId(record);
             try {
                 KVMessage reply = store.put(key, record);

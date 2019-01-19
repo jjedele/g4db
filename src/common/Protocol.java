@@ -10,9 +10,7 @@ import common.messages.admin.*;
 import common.messages.gossip.ServerState;
 import common.messages.gossip.ClusterDigest;
 import common.messages.gossip.GossipMessage;
-import common.messages.mapreduce.InitiateMRRequest;
-import common.messages.mapreduce.InitiateMRResponse;
-import common.messages.mapreduce.MRMessage;
+import common.messages.mapreduce.*;
 
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -318,6 +316,10 @@ public final class Protocol {
             encodeInitiateMRRequest(sb, (InitiateMRRequest) msg);
         } else if (msg instanceof InitiateMRResponse) {
             encodeInitiateMRResponse(sb, (InitiateMRResponse) msg);
+        } else if (msg instanceof ProcessingMRCompleteMessage) {
+            encodeProcessingMRCompleteMessage(sb, (ProcessingMRCompleteMessage) msg);
+        } else if (msg instanceof ProcessingMRCompleteAcknowledgement) {
+            encodeProcessingMRCompleteAcknowledgement(sb, (ProcessingMRCompleteAcknowledgement) msg);
         } else {
             throw new RuntimeException(msg.getClass() + " not supported for encoding.");
         }
@@ -333,7 +335,9 @@ public final class Protocol {
         sb.append(encodeRange(msg.getSourceKeyRange()));
         sb.append(UNIT_SEPARATOR);
 
-        sb.append(msg.getSourceNamespace());
+        if (msg.getSourceNamespace() != null) {
+            sb.append(msg.getSourceNamespace());
+        }
         sb.append(UNIT_SEPARATOR);
 
         sb.append(msg.getTargetNamespace());
@@ -358,6 +362,29 @@ public final class Protocol {
         if (msg.getError() != null) {
             sb.append(msg.getError());
         }
+        sb.append(UNIT_SEPARATOR);
+    }
+
+    private static void encodeProcessingMRCompleteMessage(StringBuilder sb, ProcessingMRCompleteMessage msg) {
+        sb.append(ProcessingMRCompleteMessage.TYPE_CODE);
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getId());
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(encodeRange(msg.getRange()));
+        sb.append(UNIT_SEPARATOR);
+
+        String encodedResult = msg.getResults().entrySet().stream()
+                .map(e -> e.getKey() + "=" + e.getValue())
+                .collect(Collectors.joining("\n"));
+        sb.append(encodedResult);
+        sb.append(UNIT_SEPARATOR);
+    }
+
+    private static void encodeProcessingMRCompleteAcknowledgement(StringBuilder sb,
+                                                                  ProcessingMRCompleteAcknowledgement msg) {
+        sb.append(ProcessingMRCompleteAcknowledgement.TYPE_CODE);
         sb.append(UNIT_SEPARATOR);
     }
 
@@ -472,6 +499,10 @@ public final class Protocol {
             return decodeInitiateMRRequest(scanner);
         } else if (type == InitiateMRResponse.TYPE_CODE) {
             return decodeInitiateMRResponse(scanner);
+        } else if (type == ProcessingMRCompleteMessage.TYPE_CODE) {
+            return decodeProcessingMRCompleteMessage(scanner);
+        } else if (type == ProcessingMRCompleteAcknowledgement.TYPE_CODE) {
+            return new ProcessingMRCompleteAcknowledgement();
         } else {
             throw new ProtocolException("Unknown map/reduce message type: " + type);
         }
@@ -505,6 +536,21 @@ public final class Protocol {
         }
 
         return new InitiateMRResponse(id, error);
+    }
+
+    private static ProcessingMRCompleteMessage decodeProcessingMRCompleteMessage(Scanner scanner) {
+        String id = scanner.next();
+        Range range = decodeRange(scanner.next());
+
+        String encodedResult = scanner.next();
+        Map<String, String> result = new HashMap<>();
+        Scanner entryScanner = new Scanner(encodedResult).useDelimiter("\n");
+        while (entryScanner.hasNext()) {
+            String[] entry = entryScanner.next().split("=");
+            result.put(entry[0], entry[1]);
+        }
+
+        return new ProcessingMRCompleteMessage(id, range, result);
     }
 
     private static String encodeRange(Range range) {
@@ -547,7 +593,8 @@ public final class Protocol {
                 ServerState.Status state = ServerState.Status.valueOf(parts[4]);
                 long stateVersion = Long.parseLong(parts[5]);
 
-                cluster.put(new InetSocketAddress(host, port), new ServerState(generation, heartBeat, state, stateVersion));
+                cluster.put(InetSocketAddress.createUnresolved(host, port),
+                        new ServerState(generation, heartBeat, state, stateVersion));
             });
         }
 
@@ -570,7 +617,7 @@ public final class Protocol {
      */
     public static InetSocketAddress decodeAddress(String encodedAddress) {
         String[] parts = encodedAddress.split(":");
-        return new InetSocketAddress(parts[0], Integer.parseInt(parts[1]));
+        return InetSocketAddress.createUnresolved(parts[0], Integer.parseInt(parts[1]));
     }
 
     /**

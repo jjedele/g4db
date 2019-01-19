@@ -110,8 +110,8 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
         this.activeSessions = new HashSet<>();
         this.dataDirectory = dataDirectory;
         this.running = new AtomicBoolean(false);
-        String hostname = System.getenv().getOrDefault("KV_HOSTNAME", "localhost");
-        this.serverState = new ServerState(new InetSocketAddress(hostname, port));
+        String hostname = System.getenv().getOrDefault("KV_HOSTNAME", "127.0.0.1");
+        this.serverState = new ServerState(InetSocketAddress.createUnresolved(hostname, port));
     }
 
     /**
@@ -148,7 +148,7 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
             ReplicatingDataRequestHandler dataRequestHandler =
                     new ReplicatingDataRequestHandler(serverState, persistenceService, 3);
             MapReduceRequestHandler mapReduceRequestHandler =
-                    new MapReduceRequestHandler(persistenceService);
+                    new MapReduceRequestHandler(serverState.getMyself(), persistenceService);
             Gossiper.getInstance().addListener(dataRequestHandler);
 
             serverSocket = new ServerSocket(port);

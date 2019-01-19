@@ -1,24 +1,25 @@
 package app_kvServer.mapreduce;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
-import java.util.stream.Stream;
 
 
 /**
  * Buffered map/reduce engine for aggregating data.
  */
 public class MapReduceProcessor {
+
+    private static Logger LOG = LogManager.getLogger(MapReduceProcessor.class);
 
     private static final String MAP_FUNCTION_NAME = "map";
     private static final String REDUCE_FUNCTION_NAME = "reduce";
@@ -29,7 +30,7 @@ public class MapReduceProcessor {
     private final Map<String, List<String>> collectors;
 
     /**
-     * Initialize the map/reduce engine with given JS5 script.
+     * Initialize the map/reduce engine with given ECMAScript5 code.
      *
      * The script must define below 2 functions:
      * map(emit, key, value) - where emit is a callback function taking a key and value, and key and value are strings
@@ -62,21 +63,21 @@ public class MapReduceProcessor {
 
     /**
      * Process one key, value entry.
+     *
      * @param key Key
      * @param value Value
      */
     public void process(String key, String value) {
         try {
             invocableEngine.invokeFunction("map", mapResultConsumer, key, value);
-        } catch (ScriptException e) {
-            e.printStackTrace();
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
+        } catch (ScriptException | NoSuchMethodException e) {
+            LOG.warn("Error processing value: " + value, e);
         }
     }
 
     /**
      * Get the reduced results for each encountered key.
+     *
      * @return A map of key->result
      */
     public Map<String, String> getResults() {
@@ -93,7 +94,15 @@ public class MapReduceProcessor {
         return result;
     }
 
-    private void processMapResult(String key, String value) {
+    /**
+     * Directly add an key,value pair to the reducer.
+     *
+     * This can be used to combine pre-reduced data from parallel workers.
+     *
+     * @param key Key of the key,value-pair.
+     * @param value Value of the key,value-pair.
+     */
+    public void processMapResult(String key, String value) {
         List<String> keyCollector = collectors.computeIfAbsent(key, (k) -> new ArrayList<>());
         keyCollector.add(value);
 
@@ -102,18 +111,9 @@ public class MapReduceProcessor {
                 String reduced = (String) invocableEngine.invokeFunction("reduce", keyCollector);
                 keyCollector.clear();
                 keyCollector.add(reduced);
-            } catch (ScriptException e) {
-                e.printStackTrace();
-            } catch (NoSuchMethodException e) {
-                e.printStackTrace();
+            } catch (ScriptException | NoSuchMethodException e) {
+                LOG.warn("Error processing map result: " + value, e);
             }
-        }
-    }
-
-    private class MapResultCollector implements BiConsumer<String, String> {
-        @Override
-        public void accept(String key, String value) {
-            processMapResult(key, value);
         }
     }
 
@@ -124,27 +124,12 @@ public class MapReduceProcessor {
             String reduced = (String) invocableEngine.invokeFunction("reduce", collector);
             collector.clear();
             collector.add(reduced);
-        } catch (ScriptException e) {
-            e.printStackTrace();
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
+        } catch (ScriptException | NoSuchMethodException e) {
+            LOG.warn("Error reducing buffer for key " + key, e);
         }
     }
 
     private final BiConsumer<String, String> mapResultConsumer =
             (key, value) -> processMapResult(key, value);
-
-    public static void main(String[] args) throws IOException, ScriptException {
-        String script = new String(Files.readAllBytes(Paths.get("./demo_data/sales_by_country.js")));
-        MapReduceProcessor mrp = new MapReduceProcessor(script);
-
-
-        Stream<String> lines = Files.lines(Paths.get("./demo_data/OnlineRetail.json.txt"));
-        lines.forEach(line -> {
-            mrp.process("", line);
-        });
-
-        System.out.println(mrp.getResults());
-    }
 
 }

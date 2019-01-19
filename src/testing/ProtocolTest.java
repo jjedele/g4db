@@ -12,6 +12,8 @@ import common.messages.gossip.ServerState;
 import common.messages.gossip.ClusterDigest;
 import common.messages.mapreduce.InitiateMRRequest;
 import common.messages.mapreduce.InitiateMRResponse;
+import common.messages.mapreduce.ProcessingMRCompleteAcknowledgement;
+import common.messages.mapreduce.ProcessingMRCompleteMessage;
 import junit.framework.TestCase;
 
 import java.net.InetSocketAddress;
@@ -302,6 +304,46 @@ public class ProtocolTest extends TestCase {
         InitiateMRResponse decodedResp = (InitiateMRResponse) decoded.getMRMessage();
         assertEquals("mr1", decodedResp.getId());
         assertNull(decodedResp.getError());
+    }
+
+    public void testCompleteMRFlow() throws ProtocolException {
+        long correlation = 1;
+
+        Map<String, String> results = new HashMap<>();
+        results.put("k1", "v1");
+        results.put("k2", "v2");
+        results.put("k3", "v3");
+
+        ProcessingMRCompleteMessage completeMessage =
+                new ProcessingMRCompleteMessage("mrid", new Range(1, 2), results);
+
+        byte[] encoded = Protocol.encode(completeMessage, correlation);
+
+        CorrelatedMessage correlatedMessage = Protocol.decode(encoded);
+
+        assertTrue(correlatedMessage.hasMRMessage());
+        assertTrue(correlatedMessage.getMRMessage() instanceof ProcessingMRCompleteMessage);
+
+        ProcessingMRCompleteMessage decodedMsg = (ProcessingMRCompleteMessage) correlatedMessage.getMRMessage();
+
+        assertEquals("mrid", decodedMsg.getId());
+        assertEquals(new Range(1, 2), decodedMsg.getRange());
+        assertEquals("v1", decodedMsg.getResults().get("k1"));
+        assertEquals("v2", decodedMsg.getResults().get("k2"));
+        assertEquals("v3", decodedMsg.getResults().get("k3"));
+
+
+        correlation++;
+
+
+        ProcessingMRCompleteAcknowledgement ack = new ProcessingMRCompleteAcknowledgement();
+
+        encoded = Protocol.encode(ack, correlation);
+
+        correlatedMessage = Protocol.decode(encoded);
+
+        assertTrue(correlatedMessage.hasMRMessage());
+        assertTrue(correlatedMessage.getMRMessage() instanceof ProcessingMRCompleteAcknowledgement);
     }
 
 }
