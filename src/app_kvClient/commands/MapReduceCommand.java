@@ -19,6 +19,7 @@ public class MapReduceCommand implements Command {
     /** ID of this command. */
     public static final String ID = "mapReduce";
 
+    private String sourceNamespace;
     private String targetNamespace;
     private String scriptPath;
 
@@ -32,6 +33,8 @@ public class MapReduceCommand implements Command {
     @Override
     public List<Argument> getArguments() {
         return Arrays.asList(
+                new Argument("sourceNamespace", "Namespace the data will be read from. " +
+                        "Optional, if left away the default namespace is used."),
                 new Argument("targetNamespace", "Namespace the results will be written to."),
                 new Argument("scriptPath", "Path to the map/reduce script," +
                         "relative to current working directory.")
@@ -47,12 +50,16 @@ public class MapReduceCommand implements Command {
     /** {@inheritDoc} */
     @Override
     public void init(String[] args) throws CommandException {
-        if (args.length != 2) {
+        if (args.length == 2) {
+            this.targetNamespace = args[0];
+            this.scriptPath = args[1];
+        } else if (args.length == 3) {
+            this.sourceNamespace = args[0];
+            this.targetNamespace = args[1];
+            this.scriptPath = args[2];
+        } else {
             throw new CommandException("Wrong number of arguments", this);
         }
-
-        this.targetNamespace = args[0];
-        this.scriptPath = args[1];
     }
 
     /** {@inheritDoc} */
@@ -70,7 +77,7 @@ public class MapReduceCommand implements Command {
         }
 
         try {
-            String id = client.mapReduce(targetNamespace, script);
+            String id = client.mapReduce(sourceNamespace, targetNamespace, script);
             return String.format("Started map/reduce job with id: " + id);
         } catch (ClientException e) {
             throw new CommandException(e.getMessage(), this, e);

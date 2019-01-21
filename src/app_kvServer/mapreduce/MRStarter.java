@@ -21,7 +21,7 @@ public class MRStarter {
         KVStore kvStore = new KVStore("localhost", 10000);
         kvStore.connect();
 
-        kvStore.mapReduce("bycountry", script);
+        kvStore.mapReduce(null, "bycountry", script);
 
         kvStore.disconnect();
     }

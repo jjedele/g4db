@@ -83,6 +83,13 @@ public class DiskStorage implements PersistenceService {
         return Stream.of(namespaceDir.listFiles())
                 .filter(File::isFile)
                 .map(File::getName)
+                .map(key -> {
+                    if (".".equals(namespace)) {
+                        return key;
+                    } else {
+                        return String.format("%s/%s", namespace, key);
+                    }
+                })
                 .collect(Collectors.toList());
     }
 

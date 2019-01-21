@@ -97,16 +97,17 @@ public class KVStore implements KVCommInterface {
 
     /**
      * Initiate a map/reduce job.
+     *
+     * @param sourceNamespace Namespace the data is read from. If null, default namespace will be used.
      * @param targetNamespace Namespace to write the results to.
      * @param script Script to execute.
      * @return ID of the job.
      * @throws ClientException if something goes wrong.
      */
-    public String mapReduce(String targetNamespace, String script) throws ClientException {
+    public String mapReduce(String sourceNamespace, String targetNamespace, String script) throws ClientException {
         // TODO would be better to include a host name, but OK for now
         String jobId = String.format("mr%d", System.currentTimeMillis());
         Range sourceKeyRange = new Range(0, 0); // take all for now
-        String sourceNamespace = null;
         InitiateMRRequest request = new InitiateMRRequest(jobId, sourceKeyRange, sourceNamespace, targetNamespace, script, null);
 
         CompletableFuture<InitiateMRResponse> futureResponse =
