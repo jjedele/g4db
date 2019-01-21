@@ -7,6 +7,7 @@ import common.Protocol;
 import common.exceptions.ProtocolException;
 import common.messages.Message;
 import common.utils.ContextPreservingThread;
+import common.utils.HostAndPort;
 import common.utils.RecordReader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -15,7 +16,6 @@ import org.apache.logging.log4j.ThreadContext;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.*;
@@ -35,7 +35,7 @@ public class CommunicationModule {
     private final static int DEFAULT_BUFFER_SIZE = 1000;
     private final static byte RECORD_SEPARATOR = 0x1e;
 
-    private final InetSocketAddress address;
+    private final HostAndPort address;
     private final AtomicBoolean terminated;
     private final AtomicBoolean restarting;
     private volatile boolean running;
@@ -52,7 +52,7 @@ public class CommunicationModule {
      *
      * @param address Server address to connect against
      */
-    public CommunicationModule(InetSocketAddress address) {
+    public CommunicationModule(HostAndPort address) {
         this(address, DEFAULT_BUFFER_SIZE);
     }
 
@@ -62,7 +62,7 @@ public class CommunicationModule {
      * @param address Server address to connect against
      * @param bufferCapacity Maximum number of messages in the outgoing buffer
      */
-    public CommunicationModule(InetSocketAddress address, int bufferCapacity) {
+    public CommunicationModule(HostAndPort address, int bufferCapacity) {
         this.address = address;
         this.terminated = new AtomicBoolean(false);
         this.restarting = new AtomicBoolean(false);
@@ -116,7 +116,7 @@ public class CommunicationModule {
      * Get address to which this communication module is bound.
      * @return The address
      */
-    public InetSocketAddress getAddress() {
+    public HostAndPort getAddress() {
         return address;
     }
 
@@ -320,7 +320,7 @@ public class CommunicationModule {
                     return;
                 }
 
-                socket = new Socket(address.getHostName(), address.getPort());
+                socket = new Socket(address.getHost(), address.getPort());
                 ThreadContext.put("client", socket.getLocalSocketAddress().toString());
                 ThreadContext.put("server", socket.getRemoteSocketAddress().toString());
                 writerThread = new WriterThread(socket.getOutputStream());

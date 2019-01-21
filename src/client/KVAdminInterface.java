@@ -6,8 +6,8 @@ import common.hash.Range;
 import common.messages.admin.GenericResponse;
 import common.messages.admin.MaintenanceStatusResponse;
 import common.messages.gossip.ClusterDigest;
+import common.utils.HostAndPort;
 
-import java.net.InetSocketAddress;
 import java.util.Collection;
 
 /**
@@ -19,7 +19,7 @@ public interface KVAdminInterface extends KVInterface {
      * Return the address of the node this module is connected to.
      * @return Address
      */
-    InetSocketAddress getNodeAddress();
+    HostAndPort getNodeAddress();
 
     /**
      * Request the server to update it's metadata table.
@@ -84,7 +84,7 @@ public interface KVAdminInterface extends KVInterface {
      * @return
      * @throws ClientException
      */
-    GenericResponse moveData(InetSocketAddress destination, Range keyRange) throws ClientException;
+    GenericResponse moveData(HostAndPort destination, Range keyRange) throws ClientException;
 
     /**
      * Requests the server for the status of possible running maintenance tasks.

@@ -9,11 +9,11 @@ import common.messages.admin.InitiateStreamRequest;
 import common.messages.admin.InitiateStreamResponse;
 import common.messages.gossip.ClusterDigest;
 import common.messages.gossip.ServerState;
+import common.utils.HostAndPort;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
 
-import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,7 +33,7 @@ public class Synchronizer {
     private static Synchronizer instance;
 
     private final int replicationFactor;
-    private final InetSocketAddress myself;
+    private final HostAndPort myself;
     private final app_kvServer.ServerState serverState;
     private final Map<Range, CompletableFuture<Void>> streamFutures;
 
@@ -78,7 +78,7 @@ public class Synchronizer {
 
         ClusterDigest clusterDigest = Gossiper.getInstance().getClusterDigest();
 
-        Collection<InetSocketAddress> aliveNodes = clusterDigest.getCluster().entrySet().stream()
+        Collection<HostAndPort> aliveNodes = clusterDigest.getCluster().entrySet().stream()
                 .filter(entry -> entry.getValue().getStatus() != ServerState.Status.DECOMMISSIONED)
                 .map(entry -> entry.getKey())
                 .collect(Collectors.toList());
@@ -94,13 +94,13 @@ public class Synchronizer {
                 .range(0, replicationFactor)
                 .forEach(predecessorNo -> {
                     // for 0 that's us
-                    InetSocketAddress predecessor = ring.getPredecessor(myself, predecessorNo);
+                    HostAndPort predecessor = ring.getPredecessor(myself, predecessorNo);
                     Range wantedKeyRange = ring.getAssignedRange(predecessor);
-                    InetSocketAddress[] sources = IntStream
+                    HostAndPort[] sources = IntStream
                             .rangeClosed(-predecessorNo, replicationFactor-predecessorNo)
                             .filter(i -> i != 0) // can't copy anything from our own node
                             .mapToObj(i -> ring.traverse(myself, i))
-                            .toArray(InetSocketAddress[]::new);
+                            .toArray(HostAndPort[]::new);
 
                     synchronizationPlan.add(wantedKeyRange, sources);
                 });
@@ -111,11 +111,11 @@ public class Synchronizer {
         return synchronization;
     }
 
-    public CompletableFuture<Void> initiateDecommissioning(InetSocketAddress decommissionedNode) {
+    public CompletableFuture<Void> initiateDecommissioning(HostAndPort decommissionedNode) {
         LOG.info("Initiating decommissioning process for node={}", decommissionedNode);
 
         ClusterDigest clusterDigest = Gossiper.getInstance().getClusterDigest();
-        Set<InetSocketAddress> consideredNodes = clusterDigest.getCluster().entrySet().stream()
+        Set<HostAndPort> consideredNodes = clusterDigest.getCluster().entrySet().stream()
                 .filter(entry -> entry.getValue().getStatus() != ServerState.Status.DECOMMISSIONED)
                 .map(entry -> entry.getKey())
                 .collect(Collectors.toSet());
@@ -138,12 +138,12 @@ public class Synchronizer {
 
             Range missingRange = ring.getAssignedRange(ring.getPredecessor(myself, replicationFactor));
 
-            InetSocketAddress[] sources = IntStream
+            HostAndPort[] sources = IntStream
                     .rangeClosed(1, replicationFactor)
                     .map(i -> replicationFactor - i + 1) // reverse to get priorities right
                     .mapToObj(predecessorNo -> ring.getPredecessor(myself, predecessorNo))
                     .filter(node -> !decommissionedNode.equals(node))
-                    .toArray(InetSocketAddress[]::new);
+                    .toArray(HostAndPort[]::new);
 
             synchronizationPlan.add(
                     missingRange,
@@ -190,9 +190,9 @@ public class Synchronizer {
     private class StreamSentinel implements Runnable {
 
         private final Range range;
-        private final List<InetSocketAddress> providerCandidates;
+        private final List<HostAndPort> providerCandidates;
 
-        public StreamSentinel(Range range, List<InetSocketAddress> providerCandidates) {
+        public StreamSentinel(Range range, List<HostAndPort> providerCandidates) {
             this.range = range;
             this.providerCandidates = providerCandidates;
         }
@@ -200,7 +200,7 @@ public class Synchronizer {
         @Override
         public void run() {
             ThreadContext.put("serverPort", Integer.toString(myself.getPort()));
-            InetSocketAddress source = providerCandidates.get(0);
+            HostAndPort source = providerCandidates.get(0);
             CommunicationModule communicationModule = null;
             try {
                 communicationModule = new CommunicationModule(source, 100);

@@ -3,11 +3,11 @@ package app_kvClient.performance;
 import client.KVStore;
 import client.exceptions.ClientException;
 import common.messages.KVMessage;
+import common.utils.HostAndPort;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
-import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Random;
@@ -23,7 +23,7 @@ public class RandomDataIngester {
             throw new RuntimeException("Must at least provide seed address.");
         }
         String[] parts = args[0].split(":");
-        InetSocketAddress server = new InetSocketAddress(parts[0], Integer.parseInt(parts[1]));
+        HostAndPort server = new HostAndPort(parts[0], Integer.parseInt(parts[1]));
 
         int sleep = 0;
         if (args.length >= 2) {
@@ -46,7 +46,7 @@ public class RandomDataIngester {
                 .forEach(c -> data.append((char) c));
         String strData = data.toString();
 
-        KVStore client = new KVStore(server.getHostString(), server.getPort());
+        KVStore client = new KVStore(server.getHost(), server.getPort());
         client.connect();
         PrintWriter pw = new PrintWriter(new File("data.csv"));
         int batchSize = 10;

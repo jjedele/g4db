@@ -12,10 +12,10 @@ import common.messages.DefaultKVMessage;
 import common.messages.KVMessage;
 import common.messages.gossip.ClusterDigest;
 import common.messages.gossip.ServerState;
+import common.utils.HostAndPort;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,7 +28,7 @@ public class ReplicatingDataRequestHandler implements DataRequestHandler, Gossip
     private static final String KEY_NOT_FOUND = "Key not found";
 
     private final app_kvServer.ServerState serverState;
-    private final InetSocketAddress myself;
+    private final HostAndPort myself;
     private final PersistenceService persistenceService;
     private int replicationFactor;
     private HashRing hashRing;
@@ -86,7 +86,7 @@ public class ReplicatingDataRequestHandler implements DataRequestHandler, Gossip
      */
     @Override
     public void clusterChanged(ClusterDigest clusterDigest) {
-        Set<InetSocketAddress> aliveNodes = clusterDigest.getCluster().entrySet().stream()
+        Set<HostAndPort> aliveNodes = clusterDigest.getCluster().entrySet().stream()
                 .filter(e -> e.getValue().getStatus().isParticipating())
                 .map(e -> e.getKey())
                 .collect(Collectors.toSet());
@@ -100,7 +100,7 @@ public class ReplicatingDataRequestHandler implements DataRequestHandler, Gossip
         updatedNodes(aliveNodes);
     }
 
-    private synchronized void updatedNodes(Collection<InetSocketAddress> nodes) {
+    private synchronized void updatedNodes(Collection<HostAndPort> nodes) {
         if (nodes.isEmpty()) {
             LOG.warn("Received empty node update. Skipping");
             return;
@@ -110,7 +110,7 @@ public class ReplicatingDataRequestHandler implements DataRequestHandler, Gossip
         this.hashRing = new HashRing(nodes);
 
         for (int replicaNo = 1; replicaNo < replicationFactor; replicaNo++) {
-            InetSocketAddress targetAddress = hashRing.getNthSuccessor(myself, replicaNo);
+            HostAndPort targetAddress = hashRing.getNthSuccessor(myself, replicaNo);
             CommunicationModule replicaConnection = replicationConnections[replicaNo - 1];
             if (replicaConnection == null || !targetAddress.equals(replicaConnection.getAddress())) {
                 if (replicaConnection != null) {

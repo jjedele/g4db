@@ -11,11 +11,11 @@ import common.hash.Range;
 import common.messages.DefaultKVMessage;
 import common.messages.KVMessage;
 import common.messages.admin.StreamCompleteMessage;
+import common.utils.HostAndPort;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
 
-import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -38,7 +38,7 @@ public class DataStreamTask implements AdminTask {
     private final ServerState serverState;
     private final PersistenceService persistenceService;
     private final Range keyRange;
-    private final InetSocketAddress destination;
+    private final HostAndPort destination;
     private Collection<String> keysToTransfer;
     private final AtomicInteger counter;
 
@@ -47,7 +47,7 @@ public class DataStreamTask implements AdminTask {
                           PersistenceService persistenceService,
                           Collection<String> keysToTransfer,
                           Range keyRange,
-                          InetSocketAddress destination) {
+                          HostAndPort destination) {
         this.streamId = streamId;
         this.serverState = serverState;
         this.persistenceService = persistenceService;
@@ -69,8 +69,8 @@ public class DataStreamTask implements AdminTask {
     public static DataStreamTask create(ServerState serverState,
                                         PersistenceService persistenceService,
                                         Range keyRange,
-                                        InetSocketAddress destination) throws PersistenceException {
-        String streamId = String.format("stream_%s_%d_%d_%d", serverState.getMyself().getHostString(),
+                                        HostAndPort destination) throws PersistenceException {
+        String streamId = String.format("stream_%s_%d_%d_%d", serverState.getMyself().getHost(),
                 serverState.getMyself().getPort(), keyRange.getStart(), keyRange.getEnd());
 
         // assemble a list of keys we want to transfer

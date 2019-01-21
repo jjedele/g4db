@@ -1,12 +1,12 @@
 package app_kvEcs;
 
 import java.io.*;
-import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
 import app_kvServer.CacheReplacementStrategy;
+import common.utils.HostAndPort;
 
 /**
  * External Configuration Service (ECS)
@@ -112,7 +112,7 @@ public class ECSClient {
                 String userName = parts[1];
                 String host = parts[2];
                 int port = Integer.parseInt(parts[3]);
-                InetSocketAddress address = new InetSocketAddress(host, port);
+                HostAndPort address = new HostAndPort(host, port);
 
                 serverInfo = new DefaultKVAdmin.ServerInfo(name, userName, address);
                 servers.add(serverInfo);

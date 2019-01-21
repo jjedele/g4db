@@ -3,7 +3,6 @@ package app_kvClient;
 import app_kvClient.commands.*;
 import client.KVCommInterface;
 import client.KVInterface;
-import client.KVStore;
 import client.exceptions.ServerSideException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

@@ -4,6 +4,7 @@ import common.CorrelatedMessage;
 import common.Protocol;
 import common.messages.gossip.ServerState;
 import common.messages.gossip.ClusterDigest;
+import common.utils.HostAndPort;
 import common.utils.RecordReader;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -11,7 +12,6 @@ import org.apache.logging.log4j.ThreadContext;
 
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.*;
@@ -30,19 +30,19 @@ public class Gossiper {
     private static final Logger LOG = LogManager.getLogger(Gossiper.class);
     private static Gossiper instance;
 
-    private final InetSocketAddress myself;
+    private final HostAndPort myself;
     private final long generation;
     private long heartbeat;
-    private final Map<InetSocketAddress, ServerState> cluster;
-    private final Set<InetSocketAddress> seedNodes;
+    private final Map<HostAndPort, ServerState> cluster;
+    private final Set<HostAndPort> seedNodes;
     private final ScheduledThreadPoolExecutor executorService;
-    private final Set<InetSocketAddress> deadCandidates;
+    private final Set<HostAndPort> deadCandidates;
     private final Random random;
     private final Collection<GossipEventListener> eventListeners;
     private final int gossipIntervalSeconds;
 
     // only to be accessed via singleton pattern
-    private Gossiper(InetSocketAddress myself) {
+    private Gossiper(HostAndPort myself) {
         this.myself = myself;
         this.generation = System.currentTimeMillis();
         this.heartbeat = 0;
@@ -65,7 +65,7 @@ public class Gossiper {
      *
      * @param myself Address to which the server instance is bound
      */
-    public static void initialize(InetSocketAddress myself) {
+    public static void initialize(HostAndPort myself) {
         if (instance != null) {
             throw new IllegalStateException("Gossiper already initialized.");
         }
@@ -73,7 +73,7 @@ public class Gossiper {
         instance = new Gossiper(myself);
         Arrays.stream(System.getProperty("seedNodes", "").split(",")).forEach(nodeStr -> {
             String[] parts = nodeStr.split(":");
-            InetSocketAddress node = new InetSocketAddress(parts[0], Integer.parseInt(parts[1]));
+            HostAndPort node = new HostAndPort(parts[0], Integer.parseInt(parts[1]));
             instance.addSeed(node);
         });
         instance.start();
@@ -111,7 +111,7 @@ public class Gossiper {
      * @param ownState State
      */
     public synchronized void setOwnState(ServerState.Status ownState) {
-        Map<InetSocketAddress, ServerState> singletonCluster = new HashMap<>();
+        Map<HostAndPort, ServerState> singletonCluster = new HashMap<>();
         singletonCluster.put(myself, ownState(ownState));
         handleIncomingDigest(new ClusterDigest(singletonCluster));
     }
@@ -123,7 +123,7 @@ public class Gossiper {
      *
      * @param seedNode
      */
-    public void addSeed(InetSocketAddress seedNode) {
+    public void addSeed(HostAndPort seedNode) {
         seedNodes.add(seedNode);
     }
 
@@ -151,10 +151,10 @@ public class Gossiper {
      * @return Updated cluster information
      */
     public synchronized ClusterDigest handleIncomingDigest(ClusterDigest other) {
-        Map<InetSocketAddress, ServerState> otherCluster = other.getCluster();
+        Map<HostAndPort, ServerState> otherCluster = other.getCluster();
 
         // nodes the other one knows and we don't we simply add to our state of the cluster
-        Set<InetSocketAddress> toAdd = new HashSet<>(otherCluster.keySet());
+        Set<HostAndPort> toAdd = new HashSet<>(otherCluster.keySet());
         toAdd.removeAll(cluster.keySet());
 
         toAdd.stream().forEach(node -> {
@@ -162,18 +162,18 @@ public class Gossiper {
         });
 
         // nodes we both know we have to merge accordingly
-        Set<InetSocketAddress> toMerge = new HashSet<>(otherCluster.keySet());
+        Set<HostAndPort> toMerge = new HashSet<>(otherCluster.keySet());
         toMerge.retainAll(cluster.keySet());
 
-        Set<InetSocketAddress> othersMoreRecent = toMerge.stream()
+        Set<HostAndPort> othersMoreRecent = toMerge.stream()
                 .filter(node -> cluster.get(node).compareTo(otherCluster.get(node)) < 0)
                 .collect(Collectors.toSet());
 
-//        Set<InetSocketAddress> oursMoreRecent = toMerge.stream()
+//        Set<HostAndPort> oursMoreRecent = toMerge.stream()
 //                .filter(node -> cluster.get(node).compareTo(otherCluster.get(node)) > 0)
 //                .collect(Collectors.toSet());
 
-        Map<InetSocketAddress, ServerState.Status> changes = new HashMap<>();
+        Map<HostAndPort, ServerState.Status> changes = new HashMap<>();
 
         othersMoreRecent.stream().forEach(node -> {
             ServerState localState = cluster.get(node);
@@ -187,11 +187,11 @@ public class Gossiper {
         // handle event listeners
         LOG.debug("Cluster: {}", cluster);
         for (GossipEventListener listener : eventListeners) {
-            for (InetSocketAddress node : toAdd) {
+            for (HostAndPort node : toAdd) {
                 listener.nodeAdded(node, otherCluster.get(node).getStatus());
             }
 
-            for (Map.Entry<InetSocketAddress, ServerState.Status> change : changes.entrySet()) {
+            for (Map.Entry<HostAndPort, ServerState.Status> change : changes.entrySet()) {
                 listener.nodeChanged(change.getKey(), change.getValue());
             }
 
@@ -204,16 +204,16 @@ public class Gossiper {
     }
 
     // the efficiency of of gossiping improves if we select the nodes we contact with some care
-    private Collection<InetSocketAddress> selectGossipTargets() {
+    private Collection<HostAndPort> selectGossipTargets() {
         // parameters
         final int fanOut = 1;
         final double contactSeedNodeChance = 0.3;
         final double contactDeadNodeChance = 0.3;
 
         // we try to contact <fanOut> regular nodes in each round
-        List<InetSocketAddress> candidates = new ArrayList<>(cluster.keySet());
+        List<HostAndPort> candidates = new ArrayList<>(cluster.keySet());
         Collections.shuffle(candidates);
-        Set<InetSocketAddress> targets = candidates.stream()
+        Set<HostAndPort> targets = candidates.stream()
                 .filter(node -> !myself.equals(node) && !deadCandidates.contains(node))
                 .limit(fanOut)
                 .collect(Collectors.toSet());
@@ -222,7 +222,7 @@ public class Gossiper {
         // if we don't know about other nodes we definitely contact a seed node
         // else we probabilistically contact a seed node additionally to have some information hotspots
         if (targets.isEmpty() || random.nextFloat() < contactSeedNodeChance) {
-            List<InetSocketAddress> seeds = seedNodes.stream()
+            List<HostAndPort> seeds = seedNodes.stream()
                     .filter(node -> !myself.equals(node))
                     .collect(Collectors.toList());
             Collections.shuffle(seeds);
@@ -232,7 +232,7 @@ public class Gossiper {
         // dead node handling
         // we probabilistically retry to reach a potentially dead node to find out if they came back to life
         if (!deadCandidates.isEmpty() && random.nextFloat() < contactDeadNodeChance) {
-            List<InetSocketAddress> deadNodes = deadCandidates.stream()
+            List<HostAndPort> deadNodes = deadCandidates.stream()
                     .filter(node -> !myself.equals(node))
                     .collect(Collectors.toList());
             Collections.shuffle(deadNodes);
@@ -266,19 +266,19 @@ public class Gossiper {
             cluster.put(myself, ownState(null));
             ClusterDigest digest = new ClusterDigest(cluster);
 
-            Collection<InetSocketAddress> gossipTargets = selectGossipTargets();
+            Collection<HostAndPort> gossipTargets = selectGossipTargets();
             LOG.debug("Gossiping digest {} to targets {}", digest, gossipTargets);
 
             // initiate a gossip exchange with a small number of cluster nodes
-            Map<InetSocketAddress, Future<ClusterDigest>> inFlightRequests = new HashMap<>();
-            for (InetSocketAddress target : gossipTargets) {
+            Map<HostAndPort, Future<ClusterDigest>> inFlightRequests = new HashMap<>();
+            for (HostAndPort target : gossipTargets) {
                 inFlightRequests.put(target,
                         executorService.schedule(
                                 new GossipExchange(target), 0, TimeUnit.SECONDS));
             }
 
             // resolve the outcomes of the gossip exchanges
-            for (Map.Entry<InetSocketAddress, Future<ClusterDigest>> request : inFlightRequests.entrySet()) {
+            for (Map.Entry<HostAndPort, Future<ClusterDigest>> request : inFlightRequests.entrySet()) {
                 try {
                     digest = request.getValue().get(1, TimeUnit.SECONDS);
                     handleIncomingDigest(digest);
@@ -293,15 +293,15 @@ public class Gossiper {
 
     private class GossipExchange implements Callable<ClusterDigest> {
 
-        private final InetSocketAddress target;
+        private final HostAndPort target;
 
-        public GossipExchange(InetSocketAddress target) {
+        public GossipExchange(HostAndPort target) {
             this.target = target;
         }
 
         @Override
         public ClusterDigest call() throws Exception {
-            Socket socket = new Socket(target.getAddress(), target.getPort());
+            Socket socket = new Socket(target.getHost(), target.getPort());
             LOG.debug("Gossip call {}", socket.getLocalSocketAddress());
 
             try {

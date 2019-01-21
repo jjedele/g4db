@@ -2,11 +2,11 @@ package app_kvServer.mapreduce;
 
 import app_kvServer.persistence.PersistenceService;
 import common.messages.mapreduce.*;
+import common.utils.HostAndPort;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.script.ScriptException;
-import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -17,7 +17,7 @@ public class MapReduceRequestHandler {
 
     private final static Logger LOG = LogManager.getLogger(MapReduceRequestHandler.class);
 
-    private final InetSocketAddress myself;
+    private final HostAndPort myself;
     private final PersistenceService persistenceService;
 
     private final Map<String, MapReduceMaster> masters;
@@ -28,7 +28,7 @@ public class MapReduceRequestHandler {
      * @param myself Address of the local node.
      * @param persistenceService Persistence service.
      */
-    public MapReduceRequestHandler(InetSocketAddress myself, PersistenceService persistenceService) {
+    public MapReduceRequestHandler(HostAndPort myself, PersistenceService persistenceService) {
         this.myself = myself;
         this.persistenceService = persistenceService;
 

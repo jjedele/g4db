@@ -9,10 +9,10 @@ import common.hash.HashRing;
 import common.hash.Range;
 import common.messages.DefaultKVMessage;
 import common.messages.KVMessage;
+import common.utils.HostAndPort;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -30,7 +30,7 @@ public class MoveDataTask implements AdminTask {
 
     private final PersistenceService persistenceService;
     private final Range keyRange;
-    private final InetSocketAddress destination;
+    private final HostAndPort destination;
     private List<String> keysToTransfer;
     private final AtomicInteger counter;
 
@@ -40,7 +40,7 @@ public class MoveDataTask implements AdminTask {
      * @param keyRange Range of keys to transfer
      * @param destination Destination server
      */
-    public MoveDataTask(PersistenceService persistenceService, Range keyRange, InetSocketAddress destination) {
+    public MoveDataTask(PersistenceService persistenceService, Range keyRange, HostAndPort destination) {
         this.persistenceService = persistenceService;
         this.keyRange = keyRange;
         this.destination = destination;

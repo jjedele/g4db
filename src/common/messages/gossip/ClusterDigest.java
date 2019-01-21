@@ -1,6 +1,7 @@
 package common.messages.gossip;
 
-import java.net.InetSocketAddress;
+import common.utils.HostAndPort;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -11,14 +12,14 @@ import java.util.StringJoiner;
  */
 public class ClusterDigest implements GossipMessage {
 
-    private final Map<InetSocketAddress, ServerState> cluster;
+    private final Map<HostAndPort, ServerState> cluster;
 
     /**
      * Constructor.
      *
      * @param cluster State of the cluster as collected by the Gossiper
      */
-    public ClusterDigest(Map<InetSocketAddress, ServerState> cluster) {
+    public ClusterDigest(Map<HostAndPort, ServerState> cluster) {
         this.cluster = Collections.unmodifiableMap(new HashMap<>(cluster));
     }
 
@@ -27,14 +28,14 @@ public class ClusterDigest implements GossipMessage {
      *
      * @return A mapping of cluster nodes and their respective states
      */
-    public Map<InetSocketAddress, ServerState> getCluster() {
+    public Map<HostAndPort, ServerState> getCluster() {
         return cluster;
     }
 
     @Override
     public String toString() {
         StringJoiner joiner = new StringJoiner("\n", "[ClusterState:\n", "\n]");
-        for (Map.Entry<InetSocketAddress, ServerState> entry : cluster.entrySet()) {
+        for (Map.Entry<HostAndPort, ServerState> entry : cluster.entrySet()) {
             joiner.add(String.format("%s (%s): Gen.: %d, Hbeat: %d, Sver: %d",
                     entry.getKey(), entry.getValue().getStatus(),
                     entry.getValue().getGeneration(), entry.getValue().getHeartBeat(),

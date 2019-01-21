@@ -7,10 +7,10 @@ import common.hash.HashRing;
 import common.hash.Range;
 import common.messages.gossip.ClusterDigest;
 import common.utils.ContextPreservingThread;
+import common.utils.HostAndPort;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.net.InetSocketAddress;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
@@ -25,7 +25,7 @@ public class CleanUpWorker extends ContextPreservingThread {
 
     private final Logger LOG = LogManager.getLogger(CleanUpWorker.class);
 
-    private final InetSocketAddress myself;
+    private final HostAndPort myself;
     private final PersistenceService persistenceService;
     private final int stableTimeSeconds;
     private final int intervalSeconds;
@@ -41,7 +41,7 @@ public class CleanUpWorker extends ContextPreservingThread {
      * @param intervalSeconds Time between consecutive cleanup intervals
      * @param replicationFactor Number of nodes data is replicated to
      */
-    public CleanUpWorker(InetSocketAddress myself,
+    public CleanUpWorker(HostAndPort myself,
                          PersistenceService persistenceService,
                          int stableTimeSeconds,
                          int intervalSeconds,
@@ -96,7 +96,7 @@ public class CleanUpWorker extends ContextPreservingThread {
             setUpThreadContext();
 
             ClusterDigest clusterDigest = Gossiper.getInstance().getClusterDigest();
-            Set<InetSocketAddress> clusterNodes = clusterDigest.getCluster().entrySet().stream()
+            Set<HostAndPort> clusterNodes = clusterDigest.getCluster().entrySet().stream()
                     .filter(e -> e.getValue().getStatus().isParticipating())
                     .map(e -> e.getKey())
                     .collect(Collectors.toSet());

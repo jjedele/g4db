@@ -2,8 +2,7 @@ package common.messages.admin;
 
 import common.hash.Range;
 import common.messages.gossip.ClusterDigest;
-
-import java.net.InetSocketAddress;
+import common.utils.HostAndPort;
 
 /**
  * Initiates a data stream of a range of keys to a given destination.
@@ -13,7 +12,7 @@ public class InitiateStreamRequest extends AdminMessage {
     /** The type code for serialization. */
     public static final byte TYPE_CODE = 0x0B;
 
-    private final InetSocketAddress destination;
+    private final HostAndPort destination;
     private final Range keyRange;
     private final ClusterDigest clusterDigest;
     private final boolean moveReplicationTarget;
@@ -25,7 +24,7 @@ public class InitiateStreamRequest extends AdminMessage {
      * @param clusterDigest Current knowledge of the cluster
      * @param moveReplicationTarget Make requester new replication target for moved data
      */
-    public InitiateStreamRequest(InetSocketAddress destination,
+    public InitiateStreamRequest(HostAndPort destination,
                                  Range keyRange,
                                  ClusterDigest clusterDigest,
                                  boolean moveReplicationTarget) {
@@ -39,7 +38,7 @@ public class InitiateStreamRequest extends AdminMessage {
      * Return the destination of this stream request.
      * @return
      */
-    public InetSocketAddress getDestination() {
+    public HostAndPort getDestination() {
         return destination;
     }
 

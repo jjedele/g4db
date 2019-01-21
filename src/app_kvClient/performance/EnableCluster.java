@@ -6,8 +6,8 @@ import client.exceptions.ClientException;
 import common.hash.HashRing;
 import common.hash.NodeEntry;
 import common.hash.Range;
+import common.utils.HostAndPort;
 
-import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,14 +21,14 @@ import java.util.stream.Stream;
 public class EnableCluster {
 
     public static void main(String[] args) {
-        List<InetSocketAddress> nodes = Stream.of(args)
+        List<HostAndPort> nodes = Stream.of(args)
                 .map(s -> {
                     String[] parts = s.split(":");
-                    return new InetSocketAddress(parts[0], Integer.parseInt(parts[1]));
+                    return new HostAndPort(parts[0], Integer.parseInt(parts[1]));
                 })
                 .collect(Collectors.toList());
 
-        Map<InetSocketAddress, KVAdminInterface> adminClients = new HashMap<>();
+        Map<HostAndPort, KVAdminInterface> adminClients = new HashMap<>();
         nodes.forEach(node -> {
             KVAdminInterface admin = new KVAdmin(node);
             try {

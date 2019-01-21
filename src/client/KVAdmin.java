@@ -7,8 +7,8 @@ import common.hash.NodeEntry;
 import common.hash.Range;
 import common.messages.admin.*;
 import common.messages.gossip.ClusterDigest;
+import common.utils.HostAndPort;
 
-import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -19,7 +19,7 @@ import java.util.concurrent.TimeoutException;
  */
 public class KVAdmin implements KVAdminInterface {
 
-    private final InetSocketAddress address;
+    private final HostAndPort address;
     private final CommunicationModule communicationModule;
     private int timeoutSeconds;
 
@@ -27,7 +27,7 @@ public class KVAdmin implements KVAdminInterface {
      * Constructor.
      * @param server Address of the server to connect to.
      */
-    public KVAdmin(InetSocketAddress server) {
+    public KVAdmin(HostAndPort server) {
         this.address = server;
         this.communicationModule = new CommunicationModule(server, 1000);
         this.timeoutSeconds = 30;
@@ -37,7 +37,7 @@ public class KVAdmin implements KVAdminInterface {
      * {@inheritDoc}
      */
     @Override
-    public InetSocketAddress getNodeAddress() {
+    public HostAndPort getNodeAddress() {
         return address;
     }
 
@@ -111,7 +111,7 @@ public class KVAdmin implements KVAdminInterface {
      * {@inheritDoc}
      */
     @Override
-    public GenericResponse moveData(InetSocketAddress destination, Range keyRange) throws ClientException {
+    public GenericResponse moveData(HostAndPort destination, Range keyRange) throws ClientException {
         MoveDataRequest moveDataRequest = new MoveDataRequest(destination, keyRange);
 
         return executeGenericReplySynchronously(moveDataRequest);

@@ -8,12 +8,12 @@ import common.hash.Range;
 import common.messages.admin.MaintenanceStatusResponse;
 import common.messages.gossip.ClusterDigest;
 import common.messages.gossip.ServerState;
+import common.utils.HostAndPort;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -38,7 +38,7 @@ public class DefaultKVAdmin implements KVAdmin {
         public final String userName;
 
         /** Address of the server */
-        public final InetSocketAddress address;
+        public final HostAndPort address;
 
         /**
          * Default constructor.
@@ -46,7 +46,7 @@ public class DefaultKVAdmin implements KVAdmin {
          * @param userName User name on the server
          * @param address Address of the server
          */
-        public ServerInfo(String name, String userName, InetSocketAddress address) {
+        public ServerInfo(String name, String userName, HostAndPort address) {
             this.name = name;
             this.userName = userName;
             this.address = address;
@@ -66,7 +66,7 @@ public class DefaultKVAdmin implements KVAdmin {
 
         @Override
         public void run() {
-            Map<InetSocketAddress, SimpleFailureDetector> failureDetectorMap = new HashMap<>();
+            Map<HostAndPort, SimpleFailureDetector> failureDetectorMap = new HashMap<>();
 
             while (!Thread.interrupted()) {
                 List<client.KVAdmin> admins = new ArrayList<>(adminClients.values());
@@ -97,7 +97,7 @@ public class DefaultKVAdmin implements KVAdmin {
                     }
                 });
 
-                Set<InetSocketAddress> allNodes = new HashSet<>();
+                Set<HostAndPort> allNodes = new HashSet<>();
 
                 responses.stream().forEach(clusterDigest -> allNodes.addAll(clusterDigest.getCluster().keySet()));
                 allNodes.forEach(node -> {
@@ -127,7 +127,7 @@ public class DefaultKVAdmin implements KVAdmin {
     }
 
     private final List<ServerInfo> servers;
-    private final Map<InetSocketAddress, client.KVAdmin> adminClients;
+    private final Map<HostAndPort, client.KVAdmin> adminClients;
     private final HashRing hashRing;
     private Thread failureDetectorThread;
 
@@ -148,7 +148,7 @@ public class DefaultKVAdmin implements KVAdmin {
         LOG.info("Initializing cluster with nodes: {}", candidates);
 
         // initialize the servers
-        final Collection<InetSocketAddress> seedNodes = candidates.stream()
+        final Collection<HostAndPort> seedNodes = candidates.stream()
                 .map(server -> server.address)
                 .collect(Collectors.toSet());
 
@@ -225,7 +225,7 @@ public class DefaultKVAdmin implements KVAdmin {
         LOG.info("Adding node to cluster: {}", nodeToAdd);
 
         // set up the node
-        Collection<InetSocketAddress> seedNodes = adminClients.keySet().stream()
+        Collection<HostAndPort> seedNodes = adminClients.keySet().stream()
                 .limit(3)
                 .collect(Collectors.toSet());
         try {
@@ -241,14 +241,14 @@ public class DefaultKVAdmin implements KVAdmin {
     @Override
     public void removeNode() {
         // randomly select 1 server to remove
-        List<InetSocketAddress> candidates = new ArrayList<>(adminClients.keySet());
+        List<HostAndPort> candidates = new ArrayList<>(adminClients.keySet());
         Collections.shuffle(candidates);
 
         if (candidates.size() == 0) {
             throw new RuntimeException("No active node to remove.");
         }
 
-        InetSocketAddress nodeToRemove = candidates.get(0);
+        HostAndPort nodeToRemove = candidates.get(0);
 
         CompletableFuture<Object> stopFuture = removeNode(nodeToRemove);
 
@@ -259,7 +259,7 @@ public class DefaultKVAdmin implements KVAdmin {
         }
     }
 
-    private CompletableFuture<Object> removeNode(InetSocketAddress nodeToBeRemoved) {
+    private CompletableFuture<Object> removeNode(HostAndPort nodeToBeRemoved) {
         client.KVAdmin candidateAdmin = adminClients.get(nodeToBeRemoved);
         LOG.info("Removing node={} from cluster", nodeToBeRemoved);
 
@@ -273,7 +273,7 @@ public class DefaultKVAdmin implements KVAdmin {
         return stopFuture;
     }
 
-    private void replaceNode(InetSocketAddress nodeToBeReplaced) {
+    private void replaceNode(HostAndPort nodeToBeReplaced) {
         try {
             removeNode(nodeToBeReplaced)
                     .thenCompose(res -> {
@@ -296,7 +296,7 @@ public class DefaultKVAdmin implements KVAdmin {
         }
     }
 
-    private CompletableFuture<Object> seedUpdatedStateIntoCluster(InetSocketAddress targetNode, ServerState.Status state) {
+    private CompletableFuture<Object> seedUpdatedStateIntoCluster(HostAndPort targetNode, ServerState.Status state) {
         // broadcast state change to target and two other random nodes
         final int gossipFanout = 2;
         List<client.KVAdmin> candidateAdmins = new ArrayList<>(adminClients.values());
@@ -335,7 +335,7 @@ public class DefaultKVAdmin implements KVAdmin {
         LOG.debug("Latest state for {}: {}", targetNode, latestState);
 
         // inject new state into cluster
-        Map<InetSocketAddress, ServerState> updatedCluster = new HashMap<>();
+        Map<HostAndPort, ServerState> updatedCluster = new HashMap<>();
         updatedCluster.put(targetNode, new ServerState(latestState.getGeneration(),
                 latestState.getHeartBeat(), state, latestState.getStateVersion() + 1));
         ClusterDigest seedMessage = new ClusterDigest(updatedCluster);
@@ -347,11 +347,11 @@ public class DefaultKVAdmin implements KVAdmin {
         return CompletableFuture.anyOf(inFlights);
     }
 
-    private Map<InetSocketAddress, ServerState> mergeClusterDigests(Collection<ClusterDigest> digests) {
-        Set<InetSocketAddress> allNodes = new HashSet<>();
+    private Map<HostAndPort, ServerState> mergeClusterDigests(Collection<ClusterDigest> digests) {
+        Set<HostAndPort> allNodes = new HashSet<>();
         digests.forEach(clusterDigest -> allNodes.addAll(clusterDigest.getCluster().keySet()));
 
-        Map<InetSocketAddress, ServerState> merged = new HashMap<>();
+        Map<HostAndPort, ServerState> merged = new HashMap<>();
         allNodes.forEach(node -> {
             ServerState mostRecentState = digests.stream()
                     .map(ClusterDigest::getCluster)
@@ -375,7 +375,7 @@ public class DefaultKVAdmin implements KVAdmin {
                 .collect(Collectors.toList());
     }
 
-    private void moveDataAndWaitForCompletion(InetSocketAddress source, InetSocketAddress destination, Range keyRange)
+    private void moveDataAndWaitForCompletion(HostAndPort source, HostAndPort destination, Range keyRange)
             throws ClientException {
         client.KVAdmin sourceAdmin = adminClients.get(source);
 
@@ -399,7 +399,7 @@ public class DefaultKVAdmin implements KVAdmin {
     private static Optional<client.KVAdmin> supplyNode(ServerInfo serverInfo,
                                                        int cacheSize,
                                                        CacheReplacementStrategy displacementStrategy,
-                                                       Collection<InetSocketAddress> seedNodes) {
+                                                       Collection<HostAndPort> seedNodes) {
         try {
             return Optional.of(initializeNode(serverInfo, cacheSize, displacementStrategy, seedNodes));
         } catch (IOException | InterruptedException | ClientException e) {
@@ -411,13 +411,13 @@ public class DefaultKVAdmin implements KVAdmin {
     private static client.KVAdmin initializeNode(ServerInfo serverInfo,
                                                  int cacheSize,
                                                  CacheReplacementStrategy displacementStrategy,
-                                                 Collection<InetSocketAddress> seedNodes)
+                                                 Collection<HostAndPort> seedNodes)
             throws IOException, InterruptedException, ClientException {
         // FIXME for now we assume this directory is the same for all nodes
         File workingDir = new File(System.getProperty("user.dir"));
 
         String joinedSeedNodes = seedNodes.stream()
-                .map(address -> String.format("%s:%d", address.getHostString(), address.getPort()))
+                .map(address -> String.format("%s:%d", address.getHost(), address.getPort()))
                 .collect(Collectors.joining(","));
 
         String command = String.format("cd %s && bash ./kv_daemon.sh %d %d %s %s",
@@ -430,11 +430,11 @@ public class DefaultKVAdmin implements KVAdmin {
         return adminClient;
     }
 
-    private static void executeSSH(InetSocketAddress remoteServer, String remoteUser, String command)
+    private static void executeSSH(HostAndPort remoteServer, String remoteUser, String command)
             throws IOException, InterruptedException {
         String[] cmd = new String[] {
                 "ssh",
-                String.format("%s@%s", remoteUser, remoteServer.getHostString()),
+                String.format("%s@%s", remoteUser, remoteServer.getHost()),
                 command
         };
         Runtime runtime = Runtime.getRuntime();
@@ -445,19 +445,4 @@ public class DefaultKVAdmin implements KVAdmin {
         }
     }
 
-    public static void main(String[] args) throws IOException, InterruptedException {
-        DefaultKVAdmin kvadmin = new DefaultKVAdmin(Arrays.asList(
-                new ServerInfo("node1", "xhens", new InetSocketAddress("localhost", 50000)),
-                new ServerInfo("node2", "xhens", new InetSocketAddress("localhost", 50001)),
-                new ServerInfo("node3", "xhens", new InetSocketAddress("localhost", 50002)),
-                new ServerInfo("node4", "xhens", new InetSocketAddress("localhost", 50003))));
-        kvadmin.initService(3, 45, CacheReplacementStrategy.LRU);
-        kvadmin.start();
-//        Thread.sleep(20000);
-//        kvadmin.addNode(25, CacheReplacementStrategy.FIFO);
-//        Thread.sleep(10000);
-//        kvadmin.removeNode();
-//        Thread.sleep(30000);
-//        kvadmin.shutDown();
-    }
 }

@@ -1,6 +1,7 @@
 package common.hash;
 
-import java.net.InetSocketAddress;
+import common.utils.HostAndPort;
+
 import java.util.Collection;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -12,7 +13,7 @@ import java.util.*;
  * as little as possible when nodes are added or deleted.
  */
 public class HashRing {
-    private final TreeMap<Integer, InetSocketAddress> circle = new TreeMap<>();
+    private final TreeMap<Integer, HostAndPort> circle = new TreeMap<>();
 
     /**
      * Default constructor.
@@ -28,7 +29,7 @@ public class HashRing {
      * Creates a ring and populates it with given nodes.
      * @param nodes Nodes
      */
-    public HashRing(Collection<InetSocketAddress> nodes) {
+    public HashRing(Collection<HostAndPort> nodes) {
         nodes.stream().forEach(node -> circle.put(getHash(addressToString(node)), node));
     }
 
@@ -36,12 +37,12 @@ public class HashRing {
      * Add a node to the hash ring.
      * @param node Address of the node
      */
-    private String addressToString(InetSocketAddress node){
-        return String.format("%s:%d", node.getHostString(), node.getPort());
+    private String addressToString(HostAndPort node){
+        return String.format("%s:%d", node.getHost(), node.getPort());
 
     }
 
-    public void addNode(InetSocketAddress node) {
+    public void addNode(HostAndPort node) {
         int nodeKey = getHash(addressToString(node));
         circle.put(nodeKey, node);
     }
@@ -50,7 +51,7 @@ public class HashRing {
      * Remove a node from the hash ring.
      * @param node Address of the node
      */
-    public void removeNode(InetSocketAddress node) {
+    public void removeNode(HostAndPort node) {
         int nodeKey = getHash(addressToString(node));
         circle.remove(nodeKey);
     }
@@ -59,7 +60,7 @@ public class HashRing {
      * Return all nodes on the ring.
      * @return Server nodes
      */
-    public Collection<InetSocketAddress> getNodes() {
+    public Collection<HostAndPort> getNodes() {
         // TODO
         return circle.values();
     }
@@ -70,7 +71,7 @@ public class HashRing {
      * @return {@link Range} of hash values
      * @throws IllegalArgumentException if the node does not exist
      */
-    public Range getAssignedRange(InetSocketAddress node) {
+    public Range getAssignedRange(HostAndPort node) {
         int upperBound = getHash(addressToString(node));
         int lowerBound = Optional
                 .ofNullable(circle.lowerKey(upperBound))
@@ -83,7 +84,7 @@ public class HashRing {
      * @param val The value
      * @return Address of the responsible node
      */
-    public InetSocketAddress getResponsibleNode(String val) {
+    public HostAndPort getResponsibleNode(String val) {
         // TODO
         int hashVal = getHash(val);
         for (int key : circle.navigableKeySet()) {
@@ -102,7 +103,7 @@ public class HashRing {
      * @param node The node that potentially will be added
      * @return Successor node on the ring
      */
-    public InetSocketAddress getSuccessor(InetSocketAddress node) {
+    public HostAndPort getSuccessor(HostAndPort node) {
         int nodeKey = getHash(addressToString(node));
         if (circle.higherKey(nodeKey) == null)
             return circle.firstEntry().getValue();
@@ -118,8 +119,8 @@ public class HashRing {
      * @param positions number of positions
      * @return nth successor node on the ring
      */
-    public InetSocketAddress getNthSuccessor(InetSocketAddress node, int positions) {
-        InetSocketAddress successor = node;
+    public HostAndPort getNthSuccessor(HostAndPort node, int positions) {
+        HostAndPort successor = node;
         for (int i = 0; i < positions; i++) {
             int currentKey = getHash(addressToString(successor));
 
@@ -137,8 +138,8 @@ public class HashRing {
      * @param positions Number of positions we traverse the ring in direction of smaller values
      * @return Predecessor node
      */
-    public InetSocketAddress getPredecessor(InetSocketAddress node, int positions) {
-        InetSocketAddress current = node;
+    public HostAndPort getPredecessor(HostAndPort node, int positions) {
+        HostAndPort current = node;
 
         for (int i = 0; i < positions; i++) {
             current = Optional
@@ -160,7 +161,7 @@ public class HashRing {
      * @param positions Number of nodes to hop, may be positive or negative
      * @return The reached node
      */
-    public InetSocketAddress traverse(InetSocketAddress start, int positions) {
+    public HostAndPort traverse(HostAndPort start, int positions) {
         if (positions < 0) {
             return getPredecessor(start, -positions);
         } else {
@@ -174,7 +175,7 @@ public class HashRing {
      * @param target Target node
      * @return Number of positions
      */
-    public int findSuccessorNumber(InetSocketAddress reference, InetSocketAddress target) {
+    public int findSuccessorNumber(HostAndPort reference, HostAndPort target) {
         if (!contains(reference) || !contains(target)) {
             throw new IllegalArgumentException(String.format(
                     "Both reference (%s) and target (%s) must be contained in ring (%s)",
@@ -183,7 +184,7 @@ public class HashRing {
                     getNodes()));
         }
 
-        InetSocketAddress current = reference;
+        HostAndPort current = reference;
         int successorNumber = 0;
         while (!current.equals(target)) {
             successorNumber++;
@@ -203,7 +204,7 @@ public class HashRing {
      * @param node Node
      * @return True if contained
      */
-    public boolean contains(InetSocketAddress node) {
+    public boolean contains(HostAndPort node) {
         return circle.containsValue(node);
     }
 

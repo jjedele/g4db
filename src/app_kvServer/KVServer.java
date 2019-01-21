@@ -8,6 +8,7 @@ import app_kvServer.persistence.CachedDiskStorage;
 import app_kvServer.persistence.PersistenceService;
 import app_kvServer.sync.Synchronizer;
 import common.messages.gossip.ClusterDigest;
+import common.utils.HostAndPort;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
@@ -17,7 +18,6 @@ import javax.management.ObjectName;
 import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashSet;
@@ -111,7 +111,7 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
         this.dataDirectory = dataDirectory;
         this.running = new AtomicBoolean(false);
         String hostname = System.getenv().getOrDefault("KV_HOSTNAME", "127.0.0.1");
-        this.serverState = new ServerState(InetSocketAddress.createUnresolved(hostname, port));
+        this.serverState = new ServerState(new HostAndPort(hostname, port));
     }
 
     /**
@@ -238,7 +238,7 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
     public void clusterChanged(ClusterDigest clusterDigest) {
         LOG.info("Cluster changed: {}", clusterDigest);
         cleanUpWorker.reportChange();
-        Set<InetSocketAddress> upNodes = clusterDigest.getCluster().entrySet().stream()
+        Set<HostAndPort> upNodes = clusterDigest.getCluster().entrySet().stream()
                 .filter(node -> node.getValue().getStatus().isParticipating())
                 .map(node -> node.getKey())
                 .collect(Collectors.toSet());
@@ -247,7 +247,7 @@ public class KVServer implements Runnable, SessionRegistry, GossipEventListener 
     }
 
     @Override
-    public void nodeChanged(InetSocketAddress node, common.messages.gossip.ServerState.Status newState) {
+    public void nodeChanged(HostAndPort node, common.messages.gossip.ServerState.Status newState) {
         LOG.debug("Node={} changed to state={}", node, newState);
         if (newState == common.messages.gossip.ServerState.Status.DECOMMISSIONED) {
             LOG.warn("Received DECOMMISSIONED message for node {}", node);

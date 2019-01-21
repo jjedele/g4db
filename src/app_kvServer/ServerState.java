@@ -2,10 +2,10 @@ package app_kvServer;
 
 import common.Protocol;
 import common.hash.HashRing;
+import common.utils.HostAndPort;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.net.InetSocketAddress;
 import java.util.*;
 
 /**
@@ -15,7 +15,7 @@ public class ServerState implements ServerStateMBean {
 
     private final static Logger LOG = LogManager.getLogger(ServerState.class);
 
-    private final InetSocketAddress myself;
+    private final HostAndPort myself;
     private volatile boolean stopped;
     private volatile boolean writeLockActive;
     private volatile HashRing hashRing;
@@ -24,7 +24,7 @@ public class ServerState implements ServerStateMBean {
      * Constructor.
      * @param myself Address of the currently running server
      */
-    public ServerState(InetSocketAddress myself) {
+    public ServerState(HostAndPort myself) {
         this.myself = myself;
         this.stopped = true;
         this.writeLockActive = false;
@@ -36,7 +36,7 @@ public class ServerState implements ServerStateMBean {
      * Return the address of the current server.
      * @return Address
      */
-    public InetSocketAddress getMyself() {
+    public HostAndPort getMyself() {
         return myself;
     }
 
@@ -84,10 +84,10 @@ public class ServerState implements ServerStateMBean {
      * Set the current cluster nodes.
      * @param clusterNodes Set of current cluster nodes
      */
-    public synchronized void setClusterNodes(Collection<InetSocketAddress> clusterNodes) {
+    public synchronized void setClusterNodes(Collection<HostAndPort> clusterNodes) {
         this.hashRing = new HashRing();
 
-        for (InetSocketAddress nodeEntry : clusterNodes) {
+        for (HostAndPort nodeEntry : clusterNodes) {
             hashRing.addNode(nodeEntry);
         }
 

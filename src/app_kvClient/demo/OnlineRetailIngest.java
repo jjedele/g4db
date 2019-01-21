@@ -3,9 +3,9 @@ package app_kvClient.demo;
 import client.KVStore;
 import client.exceptions.ClientException;
 import common.messages.KVMessage;
+import common.utils.HostAndPort;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -19,11 +19,11 @@ import java.util.regex.Pattern;
  */
 public class OnlineRetailIngest {
 
-    static InetSocketAddress parseAddress(String hostAndPort) {
+    static HostAndPort parseAddress(String hostAndPort) {
         String[] parts = hostAndPort.split(":");
         String host = parts[0];
         int port = Integer.parseInt(parts[1]);
-        return new InetSocketAddress(host, port);
+        return new HostAndPort(host, port);
     }
 
     static private final Pattern ID_PATTERN = Pattern.compile("\"invoice_no\": *\"(.+?)\"");
@@ -47,10 +47,10 @@ public class OnlineRetailIngest {
             numberOfOrders = Integer.parseInt(args[2]);
         }
 
-        InetSocketAddress address = parseAddress(hostAndPort);
+        HostAndPort address = parseAddress(hostAndPort);
         Path dataFile = Paths.get(path);
 
-        KVStore store = new KVStore(address.getHostString(), address.getPort());
+        KVStore store = new KVStore(address.getHost(), address.getPort());
         store.connect();
         Files.lines(dataFile).limit(numberOfOrders).forEach(record -> {
             String key = parseInvoiceId(record);

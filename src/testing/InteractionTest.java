@@ -5,10 +5,9 @@ import client.KVAdminInterface;
 import client.KVStore;
 import common.messages.KVMessage;
 import common.messages.KVMessage.StatusType;
+import common.utils.HostAndPort;
 import junit.framework.TestCase;
 import org.junit.Test;
-
-import java.net.InetSocketAddress;
 
 
 public class InteractionTest extends TestCase {
@@ -18,7 +17,7 @@ public class InteractionTest extends TestCase {
 
     public void setUp() {
         kvClient = new KVStore("localhost", 50000);
-        kvAdmin = new KVAdmin(new InetSocketAddress("localhost", 50000));
+        kvAdmin = new KVAdmin(new HostAndPort("localhost", 50000));
         try {
             kvClient.connect();
             kvAdmin.connect();

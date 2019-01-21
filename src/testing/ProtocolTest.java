@@ -14,9 +14,9 @@ import common.messages.mapreduce.InitiateMRRequest;
 import common.messages.mapreduce.InitiateMRResponse;
 import common.messages.mapreduce.ProcessingMRCompleteAcknowledgement;
 import common.messages.mapreduce.ProcessingMRCompleteMessage;
+import common.utils.HostAndPort;
 import junit.framework.TestCase;
 
-import java.net.InetSocketAddress;
 import java.util.*;
 
 public class ProtocolTest extends TestCase {
@@ -85,11 +85,11 @@ public class ProtocolTest extends TestCase {
 
         UpdateMetadataRequest request = new UpdateMetadataRequest();
         request.addNode(
-                new InetSocketAddress("localhost", 42));
+                new HostAndPort("localhost", 42));
         request.addNode(
-                new InetSocketAddress("www.google.de", 50000));
+                new HostAndPort("www.google.de", 50000));
         request.addNode(
-                new InetSocketAddress("127.0.0.1", 123));
+                new HostAndPort("127.0.0.1", 123));
 
         byte[] encoded = Protocol.encode(request, correlationNumber);
         CorrelatedMessage decoded = Protocol.decode(encoded);
@@ -100,8 +100,8 @@ public class ProtocolTest extends TestCase {
 
         UpdateMetadataRequest decodedRequest = (UpdateMetadataRequest) decoded.getAdminMessage();
 
-        Set<InetSocketAddress> expected = new HashSet<>(request.getNodes());
-        Set<InetSocketAddress> actual = new HashSet<>(decodedRequest.getNodes());
+        Set<HostAndPort> expected = new HashSet<>(request.getNodes());
+        Set<HostAndPort> actual = new HashSet<>(decodedRequest.getNodes());
 
         assertEquals(expected, actual);
     }
@@ -131,7 +131,7 @@ public class ProtocolTest extends TestCase {
     }
 
     public void testEncodeDecodeMoveDataRequest() throws ProtocolException {
-        InetSocketAddress destination = new InetSocketAddress("somehost.de", 12345);
+        HostAndPort destination = new HostAndPort("somehost.de", 12345);
         Range range = new Range(0, 500);
 
         MoveDataRequest moveDataRequest = new MoveDataRequest(destination, range);
@@ -196,10 +196,10 @@ public class ProtocolTest extends TestCase {
     public void testEncodeDecodeGossipMessage() throws ProtocolException {
         long correlation = 1;
 
-        Map<InetSocketAddress, ServerState> cluster = new HashMap<>();
-        cluster.put(new InetSocketAddress("localhost", 50000),
+        Map<HostAndPort, ServerState> cluster = new HashMap<>();
+        cluster.put(new HostAndPort("localhost", 50000),
                 new ServerState(1, 1, ServerState.Status.OK, 1));
-        cluster.put(new InetSocketAddress("localhost", 50001),
+        cluster.put(new HostAndPort("localhost", 50001),
                 new ServerState(2, 2, ServerState.Status.JOINING, 2));
 
         byte[] encoded = Protocol.encode(new ClusterDigest(cluster), correlation);
@@ -215,14 +215,14 @@ public class ProtocolTest extends TestCase {
     public void testEncodeDecodeStreamMessages() throws ProtocolException {
         long correlation = 1;
 
-        Map<InetSocketAddress, ServerState> cluster = new HashMap<>();
-        cluster.put(new InetSocketAddress("localhost", 50000),
+        Map<HostAndPort, ServerState> cluster = new HashMap<>();
+        cluster.put(new HostAndPort("localhost", 50000),
                 new ServerState(1, 1, ServerState.Status.OK, 1));
-        cluster.put(new InetSocketAddress("localhost", 50001),
+        cluster.put(new HostAndPort("localhost", 50001),
                 new ServerState(2, 2, ServerState.Status.OK, 2));
         ClusterDigest clusterDigest = new ClusterDigest(cluster);
 
-        InetSocketAddress destination = new InetSocketAddress("localhost", 1234);
+        HostAndPort destination = new HostAndPort("localhost", 1234);
         Range targetRange = new Range(1, 42);
         InitiateStreamRequest initiateStreamRequest = new InitiateStreamRequest(destination, targetRange, clusterDigest, true);
 
@@ -281,7 +281,7 @@ public class ProtocolTest extends TestCase {
         long correlation = 1;
 
         InitiateMRRequest req1 = new InitiateMRRequest("mr1", new Range(0, 0), "srcNs",
-                "tgtNs", "foo()", new InetSocketAddress("host1", 123)
+                "tgtNs", "foo()", new HostAndPort("host1", 123)
         );
         byte[] encoded = Protocol.encode(req1, correlation);
         CorrelatedMessage decoded = Protocol.decode(encoded);

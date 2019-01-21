@@ -1,8 +1,8 @@
 package app_kvServer.sync;
 
 import common.hash.Range;
+import common.utils.HostAndPort;
 
-import java.net.InetSocketAddress;
 import java.util.*;
 
 /**
@@ -12,7 +12,7 @@ import java.util.*;
 public class SynchronizationPlan {
 
     private final String reason;
-    private final Map<Range, List<InetSocketAddress>> dataPartitions;
+    private final Map<Range, List<HostAndPort>> dataPartitions;
 
     /**
      * Constructor.
@@ -28,7 +28,7 @@ public class SynchronizationPlan {
      * @param range The range to synchronize to this node
      * @param sources A prioritized list of sources the range can be obtained from
      */
-    public void add(Range range, InetSocketAddress... sources) {
+    public void add(Range range, HostAndPort... sources) {
         dataPartitions.put(range, Arrays.asList(sources));
     }
 
@@ -36,7 +36,7 @@ public class SynchronizationPlan {
      * Return the partitions included in this synchronization plan.
      * @return
      */
-    public Map<Range, List<InetSocketAddress>> getDataPartitions() {
+    public Map<Range, List<HostAndPort>> getDataPartitions() {
         return Collections.unmodifiableMap(dataPartitions);
     }
 

@@ -1,6 +1,7 @@
 package common.hash;
 
-import java.net.InetSocketAddress;
+import common.utils.HostAndPort;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -15,7 +16,7 @@ public final class NodeEntry {
     public final String name;
 
     /** Address of the node */
-    public final InetSocketAddress address;
+    public final HostAndPort address;
 
     /** Key range the node is responsible for */
     public final Range keyRange;
@@ -26,7 +27,7 @@ public final class NodeEntry {
      * @param address Address of the node
      * @param keyRange Key range the node is responsible for
      */
-    public NodeEntry(String name, InetSocketAddress address, Range keyRange) {
+    public NodeEntry(String name, HostAndPort address, Range keyRange) {
         this.name = name;
         this.address = address;
         this.keyRange = keyRange;
@@ -69,7 +70,7 @@ public final class NodeEntry {
      */
     public String toSerializableString() {
         return String.format("%s:%s:%d:%d:%d",
-                name, address.getHostString(), address.getPort(), keyRange.getStart(), keyRange.getEnd());
+                name, address.getHost(), address.getPort(), keyRange.getStart(), keyRange.getEnd());
     }
 
     /**
@@ -97,7 +98,7 @@ public final class NodeEntry {
             throw new IllegalArgumentException("Not a validly encoded NodeEntry: " + s);
         }
         return new NodeEntry(
-                nodeName, new InetSocketAddress(hostString, port), new Range(rangeStart, rangeEnd));
+                nodeName, new HostAndPort(hostString, port), new Range(rangeStart, rangeEnd));
     }
 
     /**

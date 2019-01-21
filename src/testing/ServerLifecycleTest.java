@@ -5,16 +5,12 @@ import app_kvServer.KVServer;
 import client.KVAdmin;
 import client.KVStore;
 import client.exceptions.ClientException;
-import common.hash.NodeEntry;
-import common.hash.Range;
 import common.messages.KVMessage;
 import common.messages.admin.GenericResponse;
-import common.messages.admin.UpdateMetadataRequest;
+import common.utils.HostAndPort;
 import junit.framework.TestCase;
 
 import java.io.File;
-import java.net.InetSocketAddress;
-import java.util.Arrays;
 import java.util.Random;
 
 public class ServerLifecycleTest extends TestCase {
@@ -41,7 +37,7 @@ public class ServerLifecycleTest extends TestCase {
         kvClient.connect();
 
         // admin client
-        kvAdmin = new KVAdmin(new InetSocketAddress("localhost", port));
+        kvAdmin = new KVAdmin(new HostAndPort("localhost", port));
         kvAdmin.connect();
     }
 

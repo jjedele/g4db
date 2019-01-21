@@ -9,9 +9,9 @@ import common.messages.DefaultKVMessage;
 import common.messages.KVMessage;
 import common.messages.mapreduce.InitiateMRRequest;
 import common.messages.mapreduce.InitiateMRResponse;
+import common.utils.HostAndPort;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -22,9 +22,9 @@ public class KVStore implements KVCommInterface {
     private static final Logger LOG = LogManager.getLogger(KVStore.class);
 
     private final HashRing hashRing;
-    private final Map<InetSocketAddress, CommunicationModule> communicationModules;
+    private final Map<HostAndPort, CommunicationModule> communicationModules;
     private boolean running;
-    private final InetSocketAddress seedAddress;
+    private final HostAndPort seedAddress;
 
     /**
      * Initialize KVStore with address and port of KVServer
@@ -35,7 +35,7 @@ public class KVStore implements KVCommInterface {
     public KVStore(String address, int port) {
         this.hashRing = new HashRing();
         this.communicationModules = new ConcurrentHashMap<>();
-        this.seedAddress = new InetSocketAddress(address, port);
+        this.seedAddress = new HostAndPort(address, port);
         this.running = false;
     }
 
@@ -75,6 +75,8 @@ public class KVStore implements KVCommInterface {
         if (value == null || "null".equals(value)) {
             return delete(key);
         }
+
+        LOG.warn("SENDING {}, servers: {}, connections: {}", key, hashRing, communicationModules.keySet());
 
         KVMessage outgoing = new DefaultKVMessage(key, value, KVMessage.StatusType.PUT);
         KVMessage reply = sendAndGetReply(outgoing);
@@ -164,8 +166,8 @@ public class KVStore implements KVCommInterface {
             } else {
                 // server has been stopped
                 // redirect the request to the successor node as heuristic
-                InetSocketAddress staleNode = hashRing.getResponsibleNode(msg.getKey());
-                InetSocketAddress successor = hashRing.getSuccessor(staleNode);
+                HostAndPort staleNode = hashRing.getResponsibleNode(msg.getKey());
+                HostAndPort successor = hashRing.getSuccessor(staleNode);
                 LOG.info("Detected stale node {}. Retrying on successor {}.", staleNode, successor);
                 removeNodeConnection(staleNode);
                 return sendAndGetReply(msg);
@@ -176,7 +178,7 @@ public class KVStore implements KVCommInterface {
     private CompletableFuture<KVMessage> checkReplyForResponsibility(KVMessage response, KVMessage originalRequest) {
         if (response.getStatus() == KVMessage.StatusType.SERVER_NOT_RESPONSIBLE) {
             // update the local server list
-            List<InetSocketAddress> updatedServers = Stream
+            List<HostAndPort> updatedServers = Stream
                     .of(response.getValue())
                     .map(NodeEntry::mutlipleFromSerializedString)
                     .flatMap(List::stream)
@@ -197,19 +199,19 @@ public class KVStore implements KVCommInterface {
     }
 
     private CommunicationModule communicationModuleForKey(String key) {
-        InetSocketAddress responsibleNode = hashRing.getResponsibleNode(key);
+        HostAndPort responsibleNode = hashRing.getResponsibleNode(key);
         CommunicationModule communicationModule = communicationModules.get(responsibleNode);
         return communicationModule;
     }
 
-    private synchronized void updateConnections(Collection<InetSocketAddress> newNodes) {
-        Set<InetSocketAddress> nodesToAdd = new HashSet<>(newNodes);
+    private synchronized void updateConnections(Collection<HostAndPort> newNodes) {
+        Set<HostAndPort> nodesToAdd = new HashSet<>(newNodes);
         nodesToAdd.removeAll(hashRing.getNodes());
 
-        Set<InetSocketAddress> nodesToRemove = new HashSet<>(hashRing.getNodes());
+        Set<HostAndPort> nodesToRemove = new HashSet<>(hashRing.getNodes());
         nodesToRemove.removeAll(newNodes);
 
-        for (InetSocketAddress node : nodesToAdd) {
+        for (HostAndPort node : nodesToAdd) {
             try {
                 addNodeConnection(node);
             } catch (ClientException e) {
@@ -217,23 +219,23 @@ public class KVStore implements KVCommInterface {
             }
         }
 
-        for (InetSocketAddress node : nodesToRemove) {
+        for (HostAndPort node : nodesToRemove) {
             removeNodeConnection(node);
         }
 
-        for (InetSocketAddress node : hashRing.getNodes()) {
+        for (HostAndPort node : hashRing.getNodes()) {
             LOG.info("Updated node responsibility {}: {}", node, hashRing.getAssignedRange(node));
         }
     }
 
-    private void addNodeConnection(InetSocketAddress node) throws ClientException {
+    private void addNodeConnection(HostAndPort node) throws ClientException {
         CommunicationModule communicationModule = new CommunicationModule(node, 1000);
         communicationModule.start();
         communicationModules.put(node, communicationModule);
         hashRing.addNode(node);
     }
 
-    private void removeNodeConnection(InetSocketAddress node) {
+    private void removeNodeConnection(HostAndPort node) {
         hashRing.removeNode(node);
         CommunicationModule communicationModule = communicationModules.remove(node);
         communicationModule.stop();

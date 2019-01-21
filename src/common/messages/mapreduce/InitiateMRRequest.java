@@ -1,8 +1,7 @@
 package common.messages.mapreduce;
 
 import common.hash.Range;
-
-import java.net.InetSocketAddress;
+import common.utils.HostAndPort;
 
 /**
  * Initiate a new map/reduce instance.
@@ -17,7 +16,7 @@ public class InitiateMRRequest implements MRMessage {
     private final String sourceNamespace;
     private final String targetNamespace;
     private final String script;
-    private final InetSocketAddress master;
+    private final HostAndPort master;
 
     /**
      * Constructor.
@@ -29,7 +28,7 @@ public class InitiateMRRequest implements MRMessage {
      * @param master Address of the master. Might be null, then a new map/reduce instance is started.
      */
     public InitiateMRRequest(String id, Range sourceKeyRange, String sourceNamespace,
-                             String targetNamespace, String script, InetSocketAddress master) {
+                             String targetNamespace, String script, HostAndPort master) {
         this.id = id;
         this.sourceKeyRange = sourceKeyRange;
         this.sourceNamespace = sourceNamespace;
@@ -82,7 +81,7 @@ public class InitiateMRRequest implements MRMessage {
      * Return the address of the map/reduce master.
      * @return
      */
-    public InetSocketAddress getMaster() {
+    public HostAndPort getMaster() {
         return master;
     }
 

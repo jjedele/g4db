@@ -3,13 +3,11 @@ package app_kvClient.performance;
 import client.KVStore;
 import client.exceptions.ClientException;
 import common.messages.KVMessage;
+import common.utils.HostAndPort;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
-import java.net.InetSocketAddress;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Random;
@@ -26,9 +24,9 @@ public class DistributionalDataReader {
             throw new RuntimeException("Must at least provide seed address.");
         }
         String[] parts = args[0].split(":");
-        InetSocketAddress server = new InetSocketAddress(parts[0], Integer.parseInt(parts[1]));
+        HostAndPort server = new HostAndPort(parts[0], Integer.parseInt(parts[1]));
 
-        KVStore client = new KVStore(server.getHostString(), server.getPort());
+        KVStore client = new KVStore(server.getHost(), server.getPort());
 
         String distribution = "uniform";
         if (args.length >= 2) {

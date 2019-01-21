@@ -10,11 +10,11 @@ import common.messages.mapreduce.InitiateMRRequest;
 import common.messages.mapreduce.InitiateMRResponse;
 import common.utils.ContextPreservingThread;
 import common.utils.FutureUtils;
+import common.utils.HostAndPort;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.script.ScriptException;
-import java.net.InetSocketAddress;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +34,7 @@ public class MapReduceMaster extends ContextPreservingThread {
 
     private static final Logger LOG = LogManager.getLogger(MapReduceMaster.class);
 
-    private final InetSocketAddress myself;
+    private final HostAndPort myself;
     private final InitiateMRRequest request;
 
     private final Set<Range> pendingResults;
@@ -47,7 +47,7 @@ public class MapReduceMaster extends ContextPreservingThread {
      * @param request Request that triggered the map/reduce process.
      * @throws ScriptException If map/reduce script contains errors.
      */
-    public MapReduceMaster(InetSocketAddress myself, InitiateMRRequest request) throws ScriptException {
+    public MapReduceMaster(HostAndPort myself, InitiateMRRequest request) throws ScriptException {
         this.myself = myself;
         this.request = request;
 
@@ -107,7 +107,7 @@ public class MapReduceMaster extends ContextPreservingThread {
         }
     }
 
-    private CompletableFuture<InitiateMRResponse> federateRequest(InetSocketAddress node, Range range) {
+    private CompletableFuture<InitiateMRResponse> federateRequest(HostAndPort node, Range range) {
         InitiateMRRequest federatedRequest = new InitiateMRRequest(request.getId(), range,
                 request.getSourceNamespace(), request.getTargetNamespace(), request.getScript(), myself);
 
@@ -128,7 +128,7 @@ public class MapReduceMaster extends ContextPreservingThread {
         Map<String, String> results = resultProcessor.getResults();
         LOG.info("M/r job={} finished, result size={}.", request.getId(), results.entrySet().size());
 
-        KVStore kvStore = new KVStore(myself.getHostString(), myself.getPort());
+        KVStore kvStore = new KVStore(myself.getHost(), myself.getPort());
         try {
             kvStore.connect();
 

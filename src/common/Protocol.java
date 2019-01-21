@@ -11,8 +11,8 @@ import common.messages.gossip.ServerState;
 import common.messages.gossip.ClusterDigest;
 import common.messages.gossip.GossipMessage;
 import common.messages.mapreduce.*;
+import common.utils.HostAndPort;
 
-import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -427,7 +427,7 @@ public final class Protocol {
             UpdateMetadataRequest updateMetadataRequest = new UpdateMetadataRequest();
 
             String encodedNodeEntries = scanner.next();
-            for (InetSocketAddress entry : decodeMultipleAddresses(encodedNodeEntries)) {
+            for (HostAndPort entry : decodeMultipleAddresses(encodedNodeEntries)) {
                 updateMetadataRequest.addNode(entry);
             }
 
@@ -445,7 +445,7 @@ public final class Protocol {
         } else if (type == DisableWriteLockRequest.TYPE_CODE) {
             return new DisableWriteLockRequest();
         } else if (type == MoveDataRequest.TYPE_CODE) {
-            InetSocketAddress address = decodeAddress(scanner.next());
+            HostAndPort address = decodeAddress(scanner.next());
             int rangeStart = Integer.parseInt(scanner.next());
             int rangeEnd = Integer.parseInt(scanner.next());
 
@@ -459,7 +459,7 @@ public final class Protocol {
 
             return new MaintenanceStatusResponse(active, task, progress);
         } else if (type == InitiateStreamRequest.TYPE_CODE) {
-            InetSocketAddress target = decodeAddress(scanner.next());
+            HostAndPort target = decodeAddress(scanner.next());
             Range range = decodeRange(scanner.next());
             boolean isSwitchReplicationTarget = Boolean.parseBoolean(scanner.next());
             ClusterDigest digest = decodeClusterDigest(scanner.next());
@@ -519,7 +519,7 @@ public final class Protocol {
         String script = scanner.next();
         String masterStr = scanner.next();
 
-        InetSocketAddress master = null;
+        HostAndPort master = null;
         if (masterStr != null && masterStr.length() > 0) {
             master = decodeAddress(masterStr);
         }
@@ -566,9 +566,9 @@ public final class Protocol {
 
     private static String encodeClusterDigest(ClusterDigest digest) {
         StringJoiner digestJoiner = new StringJoiner("\n");
-        for (Map.Entry<InetSocketAddress, ServerState> e : digest.getCluster().entrySet()) {
+        for (Map.Entry<HostAndPort, ServerState> e : digest.getCluster().entrySet()) {
             StringJoiner recordJoiner = new StringJoiner(":");
-            recordJoiner.add(e.getKey().getHostString());
+            recordJoiner.add(e.getKey().getHost());
             recordJoiner.add(Integer.toString(e.getKey().getPort()));
             recordJoiner.add(Long.toString(e.getValue().getGeneration()));
             recordJoiner.add(Long.toString(e.getValue().getHeartBeat()));
@@ -581,7 +581,7 @@ public final class Protocol {
     }
 
     private static ClusterDigest decodeClusterDigest(String encoded) {
-        Map<InetSocketAddress, ServerState> cluster = new HashMap<>();
+        Map<HostAndPort, ServerState> cluster = new HashMap<>();
 
         if (encoded != null && encoded.length() > 0) {
             Arrays.stream(encoded.split("\n")).forEach(nodeStr -> {
@@ -593,7 +593,7 @@ public final class Protocol {
                 ServerState.Status state = ServerState.Status.valueOf(parts[4]);
                 long stateVersion = Long.parseLong(parts[5]);
 
-                cluster.put(InetSocketAddress.createUnresolved(host, port),
+                cluster.put(new HostAndPort(host, port),
                         new ServerState(generation, heartBeat, state, stateVersion));
             });
         }
@@ -606,8 +606,8 @@ public final class Protocol {
      * @param address Address
      * @return Encoded address
      */
-    public static String encodeAddress(InetSocketAddress address) {
-        return String.format("%s:%d", address.getHostString(), address.getPort());
+    public static String encodeAddress(HostAndPort address) {
+        return String.format("%s:%d", address.getHost(), address.getPort());
     }
 
     /**
@@ -615,9 +615,9 @@ public final class Protocol {
      * @param encodedAddress Encoded address
      * @return Address
      */
-    public static InetSocketAddress decodeAddress(String encodedAddress) {
+    public static HostAndPort decodeAddress(String encodedAddress) {
         String[] parts = encodedAddress.split(":");
-        return InetSocketAddress.createUnresolved(parts[0], Integer.parseInt(parts[1]));
+        return new HostAndPort(parts[0], Integer.parseInt(parts[1]));
     }
 
     /**
@@ -625,7 +625,7 @@ public final class Protocol {
      * @param addresses Collection of addresses
      * @return Encoded string
      */
-    public static String encodeMultipleAddresses(Collection<InetSocketAddress> addresses) {
+    public static String encodeMultipleAddresses(Collection<HostAndPort> addresses) {
         return addresses.stream()
                 .map(Protocol::encodeAddress)
                 .collect(Collectors.joining(","));
@@ -636,7 +636,7 @@ public final class Protocol {
      * @param s Encoded addresses
      * @return Decoded addresses
      */
-    public static Collection<InetSocketAddress> decodeMultipleAddresses(String s) {
+    public static Collection<HostAndPort> decodeMultipleAddresses(String s) {
         return Stream.of(s.split(","))
                 .map(Protocol::decodeAddress)
                 .collect(Collectors.toList());
