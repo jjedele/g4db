@@ -198,7 +198,7 @@ public class KVClient {
      * @return The prompt string
      */
     public String getPrompt() {
-        StringBuilder builder = new StringBuilder("EchoClient");
+        StringBuilder builder = new StringBuilder("G4DB");
         if (client.map(KVInterface::isConnected).orElse(false)) {
             builder.append(" (connected)");
         }
