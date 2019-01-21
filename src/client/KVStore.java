@@ -76,8 +76,6 @@ public class KVStore implements KVCommInterface {
             return delete(key);
         }
 
-        LOG.warn("SENDING {}, servers: {}, connections: {}", key, hashRing, communicationModules.keySet());
-
         KVMessage outgoing = new DefaultKVMessage(key, value, KVMessage.StatusType.PUT);
         KVMessage reply = sendAndGetReply(outgoing);
 
