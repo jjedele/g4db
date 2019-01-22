@@ -10,10 +10,7 @@ import common.messages.KVMessage;
 import common.messages.admin.*;
 import common.messages.gossip.ServerState;
 import common.messages.gossip.ClusterDigest;
-import common.messages.mapreduce.InitiateMRRequest;
-import common.messages.mapreduce.InitiateMRResponse;
-import common.messages.mapreduce.ProcessingMRCompleteAcknowledgement;
-import common.messages.mapreduce.ProcessingMRCompleteMessage;
+import common.messages.mapreduce.*;
 import common.utils.HostAndPort;
 import junit.framework.TestCase;
 
@@ -344,6 +341,39 @@ public class ProtocolTest extends TestCase {
 
         assertTrue(correlatedMessage.hasMRMessage());
         assertTrue(correlatedMessage.getMRMessage() instanceof ProcessingMRCompleteAcknowledgement);
+    }
+
+    public void testMRStatusFlow() throws ProtocolException {
+        long correlation = 1;
+
+        MRStatusRequest req = new MRStatusRequest("mrId");
+
+        byte[] encoded = Protocol.encode(req, correlation);
+        CorrelatedMessage decoded = Protocol.decode(encoded);
+
+        MRStatusRequest reqDecoded = (MRStatusRequest) decoded.getMRMessage();
+
+        assertEquals(req.getId(), reqDecoded.getId());
+
+
+        correlation++;
+
+
+        MRStatusMessage reply = new MRStatusMessage("mrId", MRStatusMessage.Status.RUNNING,5,
+                3, 0, 60, "some error");
+
+        encoded = Protocol.encode(reply, correlation);
+        decoded = Protocol.decode(encoded);
+
+        MRStatusMessage decodedReply = (MRStatusMessage) decoded.getMRMessage();
+
+        assertEquals(reply.getId(), decodedReply.getId());
+        assertEquals(reply.getStatus(), decodedReply.getStatus());
+        assertEquals(reply.getWorkersTotal(), decodedReply.getWorkersTotal());
+        assertEquals(reply.getWorkersComplete(), decodedReply.getWorkersComplete());
+        assertEquals(reply.getWorkersFailed(), decodedReply.getWorkersFailed());
+        assertEquals(reply.getPercentageComplete(), decodedReply.getPercentageComplete());
+        assertEquals(reply.getError(), decodedReply.getError());
     }
 
 }

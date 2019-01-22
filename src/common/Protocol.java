@@ -320,6 +320,10 @@ public final class Protocol {
             encodeProcessingMRCompleteMessage(sb, (ProcessingMRCompleteMessage) msg);
         } else if (msg instanceof ProcessingMRCompleteAcknowledgement) {
             encodeProcessingMRCompleteAcknowledgement(sb, (ProcessingMRCompleteAcknowledgement) msg);
+        } else if (msg instanceof MRStatusRequest) {
+            encodeMRStatusRequest(sb, (MRStatusRequest) msg);
+        } else if (msg instanceof MRStatusMessage) {
+            encodeMRStatusMessage(sb, (MRStatusMessage) msg);
         } else {
             throw new RuntimeException(msg.getClass() + " not supported for encoding.");
         }
@@ -385,6 +389,42 @@ public final class Protocol {
     private static void encodeProcessingMRCompleteAcknowledgement(StringBuilder sb,
                                                                   ProcessingMRCompleteAcknowledgement msg) {
         sb.append(ProcessingMRCompleteAcknowledgement.TYPE_CODE);
+        sb.append(UNIT_SEPARATOR);
+    }
+
+    private static void encodeMRStatusRequest(StringBuilder sb, MRStatusRequest msg) {
+        sb.append(MRStatusRequest.TYPE_CODE);
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getId());
+        sb.append(UNIT_SEPARATOR);
+    }
+
+    private static void encodeMRStatusMessage(StringBuilder sb, MRStatusMessage msg) {
+        sb.append(MRStatusMessage.TYPE_CODE);
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getId());
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getStatus().name());
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getWorkersTotal());
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getWorkersComplete());
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getWorkersFailed());
+        sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getPercentageComplete());
+        sb.append(UNIT_SEPARATOR);
+
+        if (msg.getError() != null) {
+            sb.append(msg.getError());
+        }
         sb.append(UNIT_SEPARATOR);
     }
 
@@ -503,6 +543,10 @@ public final class Protocol {
             return decodeProcessingMRCompleteMessage(scanner);
         } else if (type == ProcessingMRCompleteAcknowledgement.TYPE_CODE) {
             return new ProcessingMRCompleteAcknowledgement();
+        } else if (type == MRStatusRequest.TYPE_CODE) {
+            return decodeMRStatusRequest(scanner);
+        } else if (type == MRStatusMessage.TYPE_CODE) {
+            return decodeMRStatusMessage(scanner);
         } else {
             throw new ProtocolException("Unknown map/reduce message type: " + type);
         }
@@ -551,6 +595,27 @@ public final class Protocol {
         }
 
         return new ProcessingMRCompleteMessage(id, range, result);
+    }
+
+    private static MRStatusRequest decodeMRStatusRequest(Scanner scanner) {
+        String id = scanner.next();
+
+        return new MRStatusRequest(id);
+    }
+
+    private static MRStatusMessage decodeMRStatusMessage(Scanner scanner) {
+        String id = scanner.next();
+        MRStatusMessage.Status status = MRStatusMessage.Status.valueOf(scanner.next());
+        int workersTotal = Integer.parseInt(scanner.next());
+        int workersComplete = Integer.parseInt(scanner.next());
+        int workersFailed = Integer.parseInt(scanner.next());
+        int percentageComplete = Integer.parseInt(scanner.next());
+        String error = scanner.next();
+        if (error != null && error.isEmpty()) {
+            error = null;
+        }
+
+        return new MRStatusMessage(id, status, workersTotal, workersComplete, workersFailed, percentageComplete, error);
     }
 
     private static String encodeRange(Range range) {

@@ -46,6 +46,8 @@ public class MapReduceRequestHandler {
             return handleInitiateMRRequest((InitiateMRRequest) request);
         } else if (request instanceof ProcessingMRCompleteMessage) {
             return handleMRCompleteMessage((ProcessingMRCompleteMessage) request);
+        } else if (request instanceof MRStatusRequest) {
+            return handleMRStatusRequest((MRStatusRequest) request);
         } else {
             throw new IllegalStateException("Message type not supported here: " + request);
         }
@@ -57,6 +59,7 @@ public class MapReduceRequestHandler {
         if (startMaster) {
             try {
                 MapReduceMaster master = new MapReduceMaster(myself, request);
+                // FIXME this is a memory leak, must be get cleaned up when jobs finish
                 masters.put(request.getId(), master);
                 master.start();
             } catch (ScriptException e) {
@@ -82,6 +85,17 @@ public class MapReduceRequestHandler {
         }
 
         return new ProcessingMRCompleteAcknowledgement();
+    }
+
+    private MRStatusMessage handleMRStatusRequest(MRStatusRequest request) {
+        MapReduceMaster master = masters.get(request.getId());
+
+        if (master == null) {
+            return new MRStatusMessage(request.getId(), MRStatusMessage.Status.NOT_FOUND,
+                    0, 0, 0, 0, null);
+        } else {
+            return master.getStatus();
+        }
     }
 
 }

@@ -8,6 +8,7 @@ import common.hash.HashRing;
 import common.hash.Range;
 import common.messages.mapreduce.InitiateMRRequest;
 import common.messages.mapreduce.InitiateMRResponse;
+import common.messages.mapreduce.MRStatusMessage;
 import common.utils.ContextPreservingThread;
 import common.utils.FutureUtils;
 import common.utils.HostAndPort;
@@ -15,14 +16,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import javax.script.ScriptException;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 /**
@@ -38,6 +35,7 @@ public class MapReduceMaster extends ContextPreservingThread {
     private final InitiateMRRequest request;
 
     private final Set<Range> pendingResults;
+    private final Set<Range> finishedResults;
     private final MapReduceProcessor resultProcessor;
 
     /**
@@ -51,7 +49,9 @@ public class MapReduceMaster extends ContextPreservingThread {
         this.myself = myself;
         this.request = request;
 
-        this.pendingResults = new HashSet<>();
+        this.pendingResults = new CopyOnWriteArraySet<>();
+        this.finishedResults = new CopyOnWriteArraySet<>();
+
         this.resultProcessor = new MapReduceProcessor(request.getScript());
     }
 
@@ -93,9 +93,10 @@ public class MapReduceMaster extends ContextPreservingThread {
                 LOG.info("Received data from completed m/r worker for job={}, range={}",
                         request.getId(), range);
 
-                pendingResults.remove(range);
                 results.entrySet().stream()
                         .forEach(e -> resultProcessor.processMapResult(e.getKey(), e.getValue()));
+                pendingResults.remove(range);
+                finishedResults.add(range);
 
                 if (pendingResults.isEmpty()) {
                     finishJob();
@@ -105,6 +106,26 @@ public class MapReduceMaster extends ContextPreservingThread {
                         request.getId(), request.getSourceKeyRange());
             }
         }
+    }
+
+    /**
+     * Return the current status of this job.
+     *
+     * @return Status.
+     */
+    public MRStatusMessage getStatus() {
+        String id = request.getId();
+        int workersComplete = finishedResults.size();
+        int workersTotal = workersComplete + pendingResults.size();
+        int workersFailed = 0; // TODO
+        long extentPending = pendingResults.stream().mapToLong(Range::getExtent).sum();
+        long extentComplete = finishedResults.stream().mapToLong(Range::getExtent).sum();
+        int percentageComplete = (int) Math.round(100.0 * extentComplete / (extentComplete + extentPending));
+        MRStatusMessage.Status status =
+                pendingResults.isEmpty() ? MRStatusMessage.Status.FINISHED : MRStatusMessage.Status.RUNNING;
+        String error = null;
+
+        return new MRStatusMessage(id, status, workersTotal, workersComplete, workersFailed, percentageComplete, error);
     }
 
     private CompletableFuture<InitiateMRResponse> federateRequest(HostAndPort node, Range range) {

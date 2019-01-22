@@ -59,6 +59,14 @@ public class Range {
     }
 
     /**
+     * Return the extent of the range.
+     * @return
+     */
+    public long getExtent() {
+        return end - start;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override

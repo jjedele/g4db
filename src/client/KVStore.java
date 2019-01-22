@@ -9,6 +9,8 @@ import common.messages.DefaultKVMessage;
 import common.messages.KVMessage;
 import common.messages.mapreduce.InitiateMRRequest;
 import common.messages.mapreduce.InitiateMRResponse;
+import common.messages.mapreduce.MRStatusMessage;
+import common.messages.mapreduce.MRStatusRequest;
 import common.utils.HostAndPort;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -111,7 +113,8 @@ public class KVStore implements KVCommInterface {
         InitiateMRRequest request = new InitiateMRRequest(jobId, sourceKeyRange, sourceNamespace, targetNamespace, script, null);
 
         CompletableFuture<InitiateMRResponse> futureResponse =
-                communicationModuleForKey(jobId)
+                // TODO should correctly choose master by ID on the ring instead of always using the seed
+                communicationModules.get(seedAddress)
                         .send(request)
                         .thenApply(reply -> (InitiateMRResponse) reply.getMRMessage());
 
@@ -120,6 +123,29 @@ public class KVStore implements KVCommInterface {
             return response.getId();
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new ClientException("Could not start map/reduce instance.", e);
+        }
+    }
+
+    /**
+     * Retrieve the status for a map/reduce job.
+     *
+     * @param jobId ID of the job.
+     * @return Status.
+     * @throws ClientException If something goes wrong.
+     */
+    public MRStatusMessage getMapReduceStatus(String jobId) throws ClientException {
+        MRStatusRequest request = new MRStatusRequest(jobId);
+        CompletableFuture<MRStatusMessage> futureResponse =
+                // TODO should correctly choose master by ID on the ring instead of always using the seed
+                communicationModules.get(seedAddress)
+                        .send(request)
+                        .thenApply(reply -> (MRStatusMessage) reply.getMRMessage());
+
+        try {
+            MRStatusMessage response = futureResponse.get(3, TimeUnit.SECONDS);
+            return response;
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new ClientException("Could get status for map/reduce job.", e);
         }
     }
 
