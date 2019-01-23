@@ -12,10 +12,10 @@ public class AdminTasks {
      * @param task The task
      */
     public static synchronized void addTask(AdminTask task) {
-        if (currentTask != null && currentTask.getProgress() < 1) {
-            // TODO at some point we might want to queue them
-            throw new IllegalStateException("Can only have one active admin task at a time.");
-        }
+//        if (currentTask != null && currentTask.getProgress() < 1) {
+//            // TODO at some point we might want to queue them
+//            throw new IllegalStateException("Can only have one active admin task at a time.");
+//        }
 
         currentTask = task;
         new Thread(currentTask).start();
