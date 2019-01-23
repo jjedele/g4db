@@ -29,7 +29,7 @@ public class KVAdmin implements KVAdminInterface {
      */
     public KVAdmin(HostAndPort server) {
         this.address = server;
-        this.communicationModule = new CommunicationModule(server, 1000);
+        this.communicationModule = new CommunicationModule(server);
         this.timeoutSeconds = 30;
     }
 

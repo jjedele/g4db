@@ -37,6 +37,7 @@ public class CommunicationModule {
     private final static byte RECORD_SEPARATOR = 0x1e;
 
     private final HostAndPort address;
+    private final boolean reconnecting;
     private final AtomicBoolean terminated;
     private final AtomicBoolean restarting;
     private volatile boolean running;
@@ -54,17 +55,19 @@ public class CommunicationModule {
      * @param address Server address to connect against
      */
     public CommunicationModule(HostAndPort address) {
-        this(address, DEFAULT_BUFFER_SIZE);
+        this(address, true, DEFAULT_BUFFER_SIZE);
     }
 
     /**
      * Constructor.
      *
      * @param address Server address to connect against
+     * @param reconnecting If true, module tries to reestablish lost connections
      * @param bufferCapacity Maximum number of messages in the outgoing buffer
      */
-    public CommunicationModule(HostAndPort address, int bufferCapacity) {
+    public CommunicationModule(HostAndPort address, boolean reconnecting, int bufferCapacity) {
         this.address = address;
+        this.reconnecting = reconnecting;
         this.terminated = new AtomicBoolean(false);
         this.restarting = new AtomicBoolean(false);
         this.messageCounter = new AtomicLong(0);
@@ -99,8 +102,17 @@ public class CommunicationModule {
      * Start the client.
      */
     public void start() throws ClientException {
+        start(true);
+    }
+
+    /**
+     * Start the client.
+     *
+     * @param retry If true, establishing the connection is retried with exponential backoff.
+     */
+    public void start(boolean retry) throws ClientException {
         terminated.set(false);
-        restartIfNotTerminated();
+        restartIfNotTerminated(retry);
         this.running = true;
     }
 
@@ -140,7 +152,7 @@ public class CommunicationModule {
      */
     public static <T extends Message> CompletableFuture<CorrelatedMessage> oneOffMessage(HostAndPort target, T request) {
         try {
-            CommunicationModule communicationModule = new CommunicationModule(target);
+            CommunicationModule communicationModule = new CommunicationModule(target, false, 1);
             communicationModule.start();
             return communicationModule.send(request).whenComplete((res, exc) -> communicationModule.stop());
         } catch (ClientException e) {
@@ -198,7 +210,7 @@ public class CommunicationModule {
                     // when both reader and writer realize the broken connection, the first one wins
                     LOG.debug("Writer thread triggered the restart.");
                     try {
-                        restartIfNotTerminated();
+                        restartIfNotTerminated(reconnecting);
                     } catch (ClientException e1) {
                         LOG.error("Could not restart connection.", e1);
                     }
@@ -268,7 +280,7 @@ public class CommunicationModule {
                     // when both reader and writer realize the broken connection, the first one wins
                     LOG.debug("Reader thread triggered the restart.");
                     try {
-                        restartIfNotTerminated();
+                        restartIfNotTerminated(reconnecting);
                     } catch (ClientException e1) {
                         LOG.error("Could not restart connection.", e1);
                     }
@@ -315,7 +327,7 @@ public class CommunicationModule {
     }
 
     // try to restart the client
-    private void restartIfNotTerminated() throws ClientException {
+    private void restartIfNotTerminated(boolean retry) throws ClientException {
         if (terminated.get()) {
             return;
         }
@@ -352,6 +364,10 @@ public class CommunicationModule {
                 // exponential backoff
                 if (reconnectWait < 16) {
                     reconnectWait *= 2;
+                }
+
+                if (!reconnecting) {
+                    break;
                 }
 
                 LOG.warn("Could not establish connection on {}. try. Retrying in {} seconds.",

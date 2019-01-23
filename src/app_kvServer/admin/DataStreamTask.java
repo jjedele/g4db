@@ -111,7 +111,7 @@ public class DataStreamTask implements AdminTask {
     @Override
     public void run() {
         ThreadContext.put("serverPort", Integer.toString(serverState.getMyself().getPort()));
-        CommunicationModule communicationModule = new CommunicationModule(destination, 1000);
+        CommunicationModule communicationModule = new CommunicationModule(destination);
 
         LOG.info("Enabling write lock because of data stream task: {}", streamId);
         serverState.setWriteLockActive(true);

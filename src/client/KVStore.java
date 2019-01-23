@@ -254,7 +254,7 @@ public class KVStore implements KVCommInterface {
     }
 
     private void addNodeConnection(HostAndPort node) throws ClientException {
-        CommunicationModule communicationModule = new CommunicationModule(node, 1000);
+        CommunicationModule communicationModule = new CommunicationModule(node);
         communicationModule.start();
         communicationModules.put(node, communicationModule);
         hashRing.addNode(node);

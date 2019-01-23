@@ -203,7 +203,7 @@ public class Synchronizer {
             HostAndPort source = providerCandidates.get(0);
             CommunicationModule communicationModule = null;
             try {
-                communicationModule = new CommunicationModule(source, 100);
+                communicationModule = new CommunicationModule(source);
                 communicationModule.start();
 
                 // TODO real

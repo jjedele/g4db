@@ -60,7 +60,7 @@ public class MoveDataTask implements AdminTask {
 
     @Override
     public void run() {
-        CommunicationModule communicationModule = new CommunicationModule(destination, 1000);
+        CommunicationModule communicationModule = new CommunicationModule(destination);
 
         try {
             communicationModule.start();
