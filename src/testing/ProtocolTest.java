@@ -346,7 +346,7 @@ public class ProtocolTest extends TestCase {
     public void testMRStatusFlow() throws ProtocolException {
         long correlation = 1;
 
-        MRStatusRequest req = new MRStatusRequest("mrId");
+        MRStatusRequest req = new MRStatusRequest("mrId", MRStatusRequest.Type.MASTER);
 
         byte[] encoded = Protocol.encode(req, correlation);
         CorrelatedMessage decoded = Protocol.decode(encoded);
@@ -354,6 +354,7 @@ public class ProtocolTest extends TestCase {
         MRStatusRequest reqDecoded = (MRStatusRequest) decoded.getMRMessage();
 
         assertEquals(req.getId(), reqDecoded.getId());
+        assertEquals(MRStatusRequest.Type.MASTER, reqDecoded.getType());
 
 
         correlation++;

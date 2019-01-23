@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /**
@@ -30,6 +31,8 @@ public class MapReduceWorker extends ContextPreservingThread {
 
     private final InitiateMRRequest request;
     private final PersistenceService persistenceService;
+    private final AtomicBoolean running;
+    private volatile Throwable error;
 
     /**
      * Constructor.
@@ -40,6 +43,8 @@ public class MapReduceWorker extends ContextPreservingThread {
     public MapReduceWorker(InitiateMRRequest request, PersistenceService persistenceService) {
         this.request = request;
         this.persistenceService = persistenceService;
+        this.running = new AtomicBoolean(false);
+        this.error = null;
     }
 
     /**
@@ -50,6 +55,8 @@ public class MapReduceWorker extends ContextPreservingThread {
         setUpThreadContext();
         LOG.info("Starting map/reduce worker process with id={}",
                 request.getId(), request.getSourceNamespace());
+
+        running.set(true);
 
         try {
             MapReduceProcessor processor = new MapReduceProcessor(request.getScript());
@@ -90,7 +97,26 @@ public class MapReduceWorker extends ContextPreservingThread {
             LOG.error("Could not run map/reduce.", e);
         } catch (ClientException | InterruptedException | ExecutionException | TimeoutException e) {
             LOG.error("Could not send map/reduce results back to master.", e);
+        } finally {
+            running.set(false);
         }
     }
 
+    /**
+     * Return if the worker is currently running.
+     *
+     * @return Running status
+     */
+    public boolean isRunning() {
+        return running.get();
+    }
+
+    /**
+     * Return the error condition of this worker or null if there is none.
+     *
+     * @return
+     */
+    public Throwable getError() {
+        return error;
+    }
 }

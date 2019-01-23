@@ -7,6 +7,7 @@ import common.Protocol;
 import common.exceptions.ProtocolException;
 import common.messages.Message;
 import common.utils.ContextPreservingThread;
+import common.utils.FutureUtils;
 import common.utils.HostAndPort;
 import common.utils.RecordReader;
 import org.apache.logging.log4j.LogManager;
@@ -127,6 +128,24 @@ public class CommunicationModule {
      */
     public boolean isRunning() {
         return !terminated.get();
+    }
+
+    /**
+     * Triggers a single request-response reply with target.
+     *
+     * @param target Address of target.
+     * @param request Request to send.
+     * @param <T> Type of message.
+     * @return Future reply.
+     */
+    public static <T extends Message> CompletableFuture<CorrelatedMessage> oneOffMessage(HostAndPort target, T request) {
+        try {
+            CommunicationModule communicationModule = new CommunicationModule(target);
+            communicationModule.start();
+            return communicationModule.send(request).whenComplete((res, exc) -> communicationModule.stop());
+        } catch (ClientException e) {
+            return FutureUtils.failedFuture(e);
+        }
     }
 
     // message that has been accepted into the sending queue

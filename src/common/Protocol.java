@@ -398,6 +398,9 @@ public final class Protocol {
 
         sb.append(msg.getId());
         sb.append(UNIT_SEPARATOR);
+
+        sb.append(msg.getType().name());
+        sb.append(UNIT_SEPARATOR);
     }
 
     private static void encodeMRStatusMessage(StringBuilder sb, MRStatusMessage msg) {
@@ -599,8 +602,9 @@ public final class Protocol {
 
     private static MRStatusRequest decodeMRStatusRequest(Scanner scanner) {
         String id = scanner.next();
+        MRStatusRequest.Type type = MRStatusRequest.Type.valueOf(scanner.next());
 
-        return new MRStatusRequest(id);
+        return new MRStatusRequest(id, type);
     }
 
     private static MRStatusMessage decodeMRStatusMessage(Scanner scanner) {

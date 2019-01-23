@@ -134,7 +134,7 @@ public class KVStore implements KVCommInterface {
      * @throws ClientException If something goes wrong.
      */
     public MRStatusMessage getMapReduceStatus(String jobId) throws ClientException {
-        MRStatusRequest request = new MRStatusRequest(jobId);
+        MRStatusRequest request = new MRStatusRequest(jobId, MRStatusRequest.Type.MASTER);
         CompletableFuture<MRStatusMessage> futureResponse =
                 // TODO should correctly choose master by ID on the ring instead of always using the seed
                 communicationModules.get(seedAddress)

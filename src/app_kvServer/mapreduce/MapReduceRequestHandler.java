@@ -21,6 +21,7 @@ public class MapReduceRequestHandler {
     private final PersistenceService persistenceService;
 
     private final Map<String, MapReduceMaster> masters;
+    private final Map<String, MapReduceWorker> workers;
 
     /**
      * Constructor.
@@ -33,6 +34,7 @@ public class MapReduceRequestHandler {
         this.persistenceService = persistenceService;
 
         this.masters = new ConcurrentHashMap<>();
+        this.workers = new ConcurrentHashMap<>();
     }
 
     /**
@@ -67,6 +69,8 @@ public class MapReduceRequestHandler {
             }
         } else {
             MapReduceWorker worker = new MapReduceWorker(request, persistenceService);
+            // FIXME this is a memory leak, must be get cleaned up when jobs finish
+            workers.put(request.getId(), worker);
             worker.start();
         }
 
@@ -88,14 +92,38 @@ public class MapReduceRequestHandler {
     }
 
     private MRStatusMessage handleMRStatusRequest(MRStatusRequest request) {
-        MapReduceMaster master = masters.get(request.getId());
+        if (request.getType() == MRStatusRequest.Type.MASTER) {
+            MapReduceMaster master = masters.get(request.getId());
 
-        if (master == null) {
-            return new MRStatusMessage(request.getId(), MRStatusMessage.Status.NOT_FOUND,
-                    0, 0, 0, 0, null);
+            if (master == null) {
+                return new MRStatusMessage(request.getId(), MRStatusMessage.Status.NOT_FOUND,
+                        0, 0, 0, 0, null);
+            } else {
+                return master.getStatus();
+            }
         } else {
-            return master.getStatus();
+            MapReduceWorker worker = workers.get(request.getId());
+
+            if (worker == null) {
+                return new MRStatusMessage(request.getId(), MRStatusMessage.Status.NOT_FOUND,
+                        0, 0, 0, 0, null);
+            } else {
+                MRStatusMessage.Status status = MRStatusMessage.Status.RUNNING;
+                String error = null;
+                if (!worker.isRunning()) {
+                    if (worker.getError() == null) {
+                        status = MRStatusMessage.Status.FINISHED;
+                    } else {
+                        status = MRStatusMessage.Status.FAILED;
+                        error = worker.getError().toString();
+                    }
+                }
+                return new MRStatusMessage(request.getId(), status,
+                        1, 1, 0, 100, error);
+            }
         }
     }
+
+
 
 }

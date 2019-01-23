@@ -18,7 +18,6 @@ import org.apache.logging.log4j.Logger;
 import javax.script.ScriptException;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
@@ -34,8 +33,8 @@ public class MapReduceMaster extends ContextPreservingThread {
     private final HostAndPort myself;
     private final InitiateMRRequest request;
 
-    private final Set<Range> pendingResults;
-    private final Set<Range> finishedResults;
+    private final Map<Range, HostAndPort> pendingResults;
+    private final Map<Range, HostAndPort> finishedResults;
     private final MapReduceProcessor resultProcessor;
 
     /**
@@ -49,8 +48,8 @@ public class MapReduceMaster extends ContextPreservingThread {
         this.myself = myself;
         this.request = request;
 
-        this.pendingResults = new CopyOnWriteArraySet<>();
-        this.finishedResults = new CopyOnWriteArraySet<>();
+        this.pendingResults = new ConcurrentHashMap<>();
+        this.finishedResults = new ConcurrentHashMap<>();
 
         this.resultProcessor = new MapReduceProcessor(request.getScript());
     }
@@ -65,12 +64,10 @@ public class MapReduceMaster extends ContextPreservingThread {
 
         HashRing ring = new HashRing(Gossiper.getInstance().getClusterDigest().getCluster().keySet());
 
-        ring.getNodes().stream()
-                .map(ring::getAssignedRange)
-                .forEach(pendingResults::add);
+        ring.getNodes().forEach(node -> pendingResults.put(ring.getAssignedRange(node), node));
 
-        List<CompletableFuture<InitiateMRResponse>> responses = ring.getNodes().stream()
-                .map(node -> federateRequest(node, ring.getAssignedRange(node)))
+        List<CompletableFuture<InitiateMRResponse>> responses = pendingResults.entrySet().stream()
+                .map(e -> federateRequest(e.getValue(), e.getKey()))
                 .collect(Collectors.toList());
 
         CompletableFuture<Void> totalFederationFuture = FutureUtils.allOf(responses);
@@ -89,14 +86,14 @@ public class MapReduceMaster extends ContextPreservingThread {
      */
     public void collectResults(Range range, Map<String, String> results) {
         synchronized (pendingResults) {
-            if (pendingResults.contains(range)) {
+            if (pendingResults.containsKey(range)) {
                 LOG.info("Received data from completed m/r worker for job={}, range={}",
                         request.getId(), range);
 
                 results.entrySet().stream()
                         .forEach(e -> resultProcessor.processMapResult(e.getKey(), e.getValue()));
-                pendingResults.remove(range);
-                finishedResults.add(range);
+                HostAndPort node = pendingResults.remove(range);
+                finishedResults.put(range, node);
 
                 if (pendingResults.isEmpty()) {
                     finishJob();
@@ -118,8 +115,8 @@ public class MapReduceMaster extends ContextPreservingThread {
         int workersComplete = finishedResults.size();
         int workersTotal = workersComplete + pendingResults.size();
         int workersFailed = 0; // TODO
-        long extentPending = pendingResults.stream().mapToLong(Range::getExtent).sum();
-        long extentComplete = finishedResults.stream().mapToLong(Range::getExtent).sum();
+        long extentPending = pendingResults.keySet().stream().mapToLong(Range::getExtent).sum();
+        long extentComplete = finishedResults.keySet().stream().mapToLong(Range::getExtent).sum();
         int percentageComplete = (int) Math.round(100.0 * extentComplete / (extentComplete + extentPending));
         MRStatusMessage.Status status =
                 pendingResults.isEmpty() ? MRStatusMessage.Status.FINISHED : MRStatusMessage.Status.RUNNING;
@@ -132,17 +129,9 @@ public class MapReduceMaster extends ContextPreservingThread {
         InitiateMRRequest federatedRequest = new InitiateMRRequest(request.getId(), range,
                 request.getSourceNamespace(), request.getTargetNamespace(), request.getScript(), myself);
 
-        try {
-            CommunicationModule communicationModule = new CommunicationModule(node);
-            communicationModule.start();
-
-            return communicationModule
-                    .send(federatedRequest)
-                    .thenApply(reply -> (InitiateMRResponse) reply.getMRMessage())
-                    .whenComplete((res, exc) -> communicationModule.stop());
-        } catch (ClientException e) {
-            return FutureUtils.failedFuture(e);
-        }
+        return CommunicationModule
+                .oneOffMessage(node, federatedRequest)
+                .thenApply(correlatedMessage -> (InitiateMRResponse) correlatedMessage.getMRMessage());
     }
 
     private void finishJob() {
