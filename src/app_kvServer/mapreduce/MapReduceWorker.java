@@ -10,6 +10,7 @@ import common.messages.mapreduce.ProcessingMRCompleteMessage;
 import common.utils.ContextPreservingThread;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.ThreadContext;
 
 import javax.script.ScriptException;
 import java.util.List;
@@ -53,6 +54,7 @@ public class MapReduceWorker extends ContextPreservingThread {
     @Override
     public void run() {
         setUpThreadContext();
+        ThreadContext.put("mrJob", request.getId());
         LOG.info("Starting map/reduce worker process with id={}",
                 request.getId(), request.getSourceNamespace());
 
@@ -95,8 +97,13 @@ public class MapReduceWorker extends ContextPreservingThread {
                     .get(60, TimeUnit.SECONDS);
         } catch (ScriptException | PersistenceException e) {
             LOG.error("Could not run map/reduce.", e);
+            error = e;
         } catch (ClientException | InterruptedException | ExecutionException | TimeoutException e) {
             LOG.error("Could not send map/reduce results back to master.", e);
+            error = e;
+        } catch (Exception e) {
+            error = e;
+            throw e;
         } finally {
             running.set(false);
         }
