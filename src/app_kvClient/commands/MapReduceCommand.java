@@ -3,6 +3,7 @@ package app_kvClient.commands;
 import app_kvClient.KVClient;
 import client.KVStore;
 import client.exceptions.ClientException;
+import common.messages.mapreduce.MRStatusMessage;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -78,6 +79,23 @@ public class MapReduceCommand implements Command {
 
         try {
             String id = client.mapReduce(sourceNamespace, targetNamespace, script);
+
+/*
+            new Thread(() -> {
+                // wait for a second
+
+                try {
+                    MRStatusMessage mrStatusMessage = client.getMapReduceStatus(id);
+
+                    do {
+
+                    } while ();
+                } catch (ClientException e) {
+                    e.printStackTrace();
+                }
+            }).start();
+*/
+
             return String.format("Started map/reduce job with id: " + id);
         } catch (ClientException e) {
             throw new CommandException(e.getMessage(), this, e);
