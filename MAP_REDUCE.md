@@ -14,14 +14,14 @@ Chen, D., Sain, S. L., & Guo, K. (2012). Data mining for the online retail indus
 
 ## Scripts
 
-Also included es.jsare a couple of example map/reduce programs.
+Also included are a couple of example map/reduce programs.
 
 Map/reduce scripts are triggered via the usual CLI. There are two variants:
 
     G4DB> mapReduce target_ns local/path/to/script.js
 
 Executes the given script on all records in the default namespace (i.e. no namespace) and writes
-the results into the `target_ns` namespace.
+the results to the `target_ns` namespace.
 
     G4DB> mapReduce source_ns target_ns local/path/to/script.js
 
@@ -103,7 +103,7 @@ After the job finishes, we can check the result:
 
 ## Limitations of the Current Implementation
 
-- Final results are aggregated on the master which is a severe bottleneck.
+- Final results are aggregated on the master, which is a severe bottleneck.
   Concretely this means that we support only operations that reduce very strongly, e.g. sales by country.
   Operations with larger intermediate key sets like e.g. frequently bought item sets could be problematic.
   The better solution would be combining the final results for each key on the node
