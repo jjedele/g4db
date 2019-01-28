@@ -145,7 +145,7 @@ public class KVStore implements KVCommInterface {
             MRStatusMessage response = futureResponse.get(3, TimeUnit.SECONDS);
             return response;
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new ClientException("Could get status for map/reduce job.", e);
+            throw new ClientException("Could not get status for map/reduce job.", e);
         }
     }
 

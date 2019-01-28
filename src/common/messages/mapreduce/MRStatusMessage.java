@@ -22,6 +22,7 @@ public class MRStatusMessage implements MRMessage {
     private final int workersFailed;
     private final int percentageComplete;
     private final String error;
+    private boolean finished;
 
     /**
      * Constructor.
