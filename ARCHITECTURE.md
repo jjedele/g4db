@@ -215,3 +215,47 @@ arriving. If there are no updated heartbeats for a node for a certain amount of 
 node will be first decommissioned. After some time (currently 10s), a new node will be added back into the cluster.
 
 Note that in the current state, ECS is a single point of failure for failure detection.
+
+## Map/Reduce Implementation
+
+A client initiates a map-reduce-process with a script.
+
+The request including the script if forwarded to a cluster node.
+
+This node starts a map-reduce-master process in turn.
+
+The master federates the request to all other cluster nodes which in turn start
+worker processes.
+
+The worker process on each nodes starts applying the map-operation on all the data records
+that are in its primary (i.e. not only replicated) responsibility.
+
+![mr1](doc/mr-1-init.png)
+
+Results are reduced in a first iteration on each worker (a process sometimes called _combining_).
+The reduced results are sent back to the master process.
+
+![mr2](doc/mr-2-worker.png)
+
+Mapping and reducing are actually exeucted in parallel on the workers, aiming at keeping memory consumption as low as possible.
+
+The master process does a second stage of reducing, thereby combining the results of the different workers.
+It then persists the final results to the cluster.
+
+![mr2](doc/mr-3-final.png)
+
+### Limitations of the Current Implementation
+
+- Final results are aggregated on the master, which is a severe bottleneck.
+  Concretely this means that we support only operations that reduce very strongly, e.g. sales by country.
+  Operations with larger intermediate key sets like e.g. frequently bought item sets could be problematic.
+  The better solution would be combining the final results for each key on the node
+  which has to store the result eventually to distribute the load better.
+  We unfortunately did not have time to do this.
+- The master process currently has to communicate with all the nodes, which is another bottleneck.
+  Better would be using the Gossiping mechanism, but this would have required significant work to
+  come up with a mechanism which would allow us not to include the scripts of all map/reduce jobs
+  in all Gossip messages. We did not have time for that.
+- The set of all keys with at least 2 tuples have to fit in memory on all worker nodes.
+  Spilling results to disk is not supported.
+- There is no fail-over mechanism for the master process (fail-over for worker processes is implemented).

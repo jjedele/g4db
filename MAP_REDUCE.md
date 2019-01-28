@@ -100,13 +100,3 @@ After the job finishes, we can check the result:
     G4DB> get top10_countries/result
 
     GET_SUCCESS top10_countries/result : [{"country":"United Kingdom","total":768787404},{"country":"Netherlands","total":27159093},{"country":"EIRE","total":24605811},{"country":"Germany","total":19027399},{"country":"France","total":17456055},{"country":"Australia","total":13442308},{"country":"Switzerland","total":5017616},{"country":"Spain","total":4813771},{"country":"Belgium","total":3477872},{"country":"Sweden","total":3466343}]
-
-## Limitations of the Current Implementation
-
-- Final results are aggregated on the master, which is a severe bottleneck.
-  Concretely this means that we support only operations that reduce very strongly, e.g. sales by country.
-  Operations with larger intermediate key sets like e.g. frequently bought item sets could be problematic.
-  The better solution would be combining the final results for each key on the node
-  which has to store the result eventually to distribute the load better.
-  We unfortunately did not have time to do this.
-- There is no fail-over mechanism for the master process (fail-over for worker processes is implemented).
