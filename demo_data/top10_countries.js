@@ -1,8 +1,6 @@
 /*
- * This map/reduce script aggregates the sales by country.
+ * This map/reduce script finds the top10 countries by sales volume.
  */
-
-// First Usecase - Total Volume
 
 var N = 10;
 

@@ -9,7 +9,8 @@ The most awesome distributed cloud database.
 
 ## Documentation
 
-More detailed [architecture documentation](ARCHITECTURE.md).
+- More detailed [architecture documentation](ARCHITECTURE.md).
+- [Map/Reduce Tutorial](MAP_REDUCE.md)
 
 ### Building
 
