@@ -112,6 +112,7 @@ public class KVStore implements KVCommInterface {
         Range sourceKeyRange = new Range(0, 0); // take all for now
         InitiateMRRequest request = new InitiateMRRequest(jobId, sourceKeyRange, sourceNamespace, targetNamespace, script, null);
 
+        System.err.println(communicationModules);
         CompletableFuture<InitiateMRResponse> futureResponse =
                 // TODO should correctly choose master by ID on the ring instead of always using the seed
                 communicationModules.get(seedAddress)

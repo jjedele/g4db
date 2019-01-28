@@ -53,6 +53,11 @@ public class ConnectCommand implements Command {
 
         this.host = args[0];
 
+        // this is kind of a hack, but it solves some problems for now
+        if ("localhost".equals(this.host)) {
+            this.host = "127.0.0.1";
+        }
+
         // port number
         try {
             this.port = Integer.parseUnsignedInt(args[1]);

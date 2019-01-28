@@ -22,7 +22,6 @@ public class MRStatusMessage implements MRMessage {
     private final int workersFailed;
     private final int percentageComplete;
     private final String error;
-    private boolean finished;
 
     /**
      * Constructor.
@@ -103,7 +102,7 @@ public class MRStatusMessage implements MRMessage {
 
     @Override
     public String toString() {
-        return String.format("<%s (%s); Workers: %d/%d (f: %d); %d%%; error: %s>",
+        return String.format("<%s (%s); Workers: %d/%d (failed: %d); %d%%; error: %s>",
                 id, status, workersComplete, workersTotal, workersFailed, percentageComplete, error);
     }
 }

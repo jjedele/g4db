@@ -80,21 +80,24 @@ public class MapReduceCommand implements Command {
         try {
             String id = client.mapReduce(sourceNamespace, targetNamespace, script);
 
-/*
             new Thread(() -> {
                 // wait for a second
 
                 try {
-                    MRStatusMessage mrStatusMessage = client.getMapReduceStatus(id);
-
+                    MRStatusMessage status;
                     do {
-
-                    } while ();
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            // ignore
+                        }
+                        status = client.getMapReduceStatus(id);
+                        System.out.println(status);
+                    } while (status.getStatus() == MRStatusMessage.Status.RUNNING);
                 } catch (ClientException e) {
                     e.printStackTrace();
                 }
             }).start();
-*/
 
             return String.format("Started map/reduce job with id: " + id);
         } catch (ClientException e) {
