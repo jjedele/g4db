@@ -242,7 +242,9 @@ public class HashRing {
     public String toString() {
         StringJoiner nodeJoiner = new StringJoiner("\n", "Ring[\n", "]");
         getNodes().forEach(node -> {
-            nodeJoiner.add(String.format("%s : %s", node, getAssignedRange(node)));
+            Range assignedRange = getAssignedRange(node);
+            double ownershipFraction = 100.0 * assignedRange.getExtent() / ((long) Integer.MAX_VALUE - Integer.MIN_VALUE);
+            nodeJoiner.add(String.format("%s : %s (%.2f%%)", node, assignedRange, ownershipFraction));
         });
         return nodeJoiner.toString();
     }

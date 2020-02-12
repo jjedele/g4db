@@ -167,10 +167,10 @@ public class ReplicatingDataRequestHandler implements DataRequestHandler, Gossip
                     status);
 
             if (!replicationRequest) {
-                replicatePut(msg.getKey(), msg.getValue());
+                //replicatePut(msg.getKey(), msg.getValue());
             }
 
-            LOG.info("Handled request={} for key={} with reply={}",
+            LOG.debug("Handled request={} for key={} with reply={}",
                     msg.getStatus(),
                     msg.getKey(),
                     reply.getStatus());
@@ -214,7 +214,7 @@ public class ReplicatingDataRequestHandler implements DataRequestHandler, Gossip
                     .map(value -> new DefaultKVMessage(msg.getKey(), value, KVMessage.StatusType.GET_SUCCESS))
                     .orElseThrow(() -> new IllegalArgumentException(KEY_NOT_FOUND));
 
-            LOG.info("Handled request={} for key={} with reply={}",
+            LOG.debug("Handled request={} for key={} with reply={}",
                     msg.getStatus(),
                     msg.getKey(),
                     reply.getStatus());
@@ -270,7 +270,7 @@ public class ReplicatingDataRequestHandler implements DataRequestHandler, Gossip
                         msg.getValue(),
                         KVMessage.StatusType.DELETE_SUCCESS);
 
-                LOG.info("Handled request={} for key={} with reply={}",
+                LOG.debug("Handled request={} for key={} with reply={}",
                         msg.getStatus(),
                         msg.getKey(),
                         reply.getStatus());

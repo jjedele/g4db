@@ -5,7 +5,10 @@ import client.exceptions.ClientException;
 import common.messages.KVMessage;
 import common.utils.HostAndPort;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -17,7 +20,7 @@ import java.util.regex.Pattern;
  *
  * Arguments: HOST:PORT PATH_TO_DATA_FILE NUMBER_OF_RECORDS_TO_IMPORT
  */
-public class OnlineRetailIngest {
+public class OnlineRetailIngest2 {
 
     static HostAndPort parseAddress(String hostAndPort) {
         String[] parts = hostAndPort.split(":");
@@ -34,37 +37,22 @@ public class OnlineRetailIngest {
     }
 
     public static void main(String[] args) throws IOException, ClientException {
-        if (args.length < 2) {
-            System.err.println("Call with: HOST:PORT PATH_TO_FILE NO_OF_ORDERS");
-            System.exit(1);
-        }
+        Path dataFile = Paths.get("demo_data", "OnlineRetail.json.txt");
 
-        String hostAndPort = args[0];
-        String path = args[1];
-
-        int numberOfOrders = 500000;
-        if (args.length == 3) {
-            numberOfOrders = Integer.parseInt(args[2]);
-        }
-
-        HostAndPort address = parseAddress(hostAndPort);
-        Path dataFile = Paths.get(path);
-
-        KVStore store = new KVStore(address.getHost(), address.getPort());
-        store.connect();
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 15; i++) {
             final int j = i;
-            Files.lines(dataFile).limit(numberOfOrders).forEach(record -> {
-                String key = "" + j + "-" + parseInvoiceId(record);
+            Files.lines(dataFile).forEach(record -> {
+                String key = "" + j + "_" + parseInvoiceId(record);
+                File outFile = new File("../proc_data/" + key);
                 try {
-                    KVMessage reply = store.put(key, record);
-                    System.out.println(reply);
-                } catch (ClientException e) {
+                    PrintWriter printWriter = new PrintWriter(outFile);
+                    printWriter.println(record);
+                    printWriter.close();
+                } catch (FileNotFoundException e) {
                     e.printStackTrace();
                 }
             });
         }
-        store.disconnect();
     }
 
 }

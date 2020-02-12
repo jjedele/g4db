@@ -16,6 +16,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.ThreadContext;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -116,6 +118,7 @@ public class DataStreamTask implements AdminTask {
         LOG.info("Enabling write lock because of data stream task: {}", streamId);
         serverState.setWriteLockActive(true);
 
+        Instant start = Instant.now();
         try {
             communicationModule.start();
 
@@ -162,6 +165,8 @@ public class DataStreamTask implements AdminTask {
             // wait until the whole transfer completed
             CompletableFuture<Void> overallTransfer = CompletableFuture.allOf(transfers.toArray(new CompletableFuture[] {}));
             overallTransfer.get();
+
+            Instant end = Instant.now();
             try {
                 CorrelatedMessage response = communicationModule
                         .send(new StreamCompleteMessage(streamId, keyRange))
@@ -169,7 +174,8 @@ public class DataStreamTask implements AdminTask {
             } catch (TimeoutException e) {
                 LOG.error("Could not send completion message for stream " + streamId, e);
             }
-            LOG.info("Finished transfer of {} entries to {}", keysToTransfer.size(), destination);
+            LOG.info("Finished transfer of {} entries to {} in {}s",
+                    keysToTransfer.size(), destination, Duration.between(start, end).getSeconds());
         } catch (PersistenceException | InterruptedException | ExecutionException | ClientException e) {
             LOG.error("Could not transfer values.", e);
         } finally {
