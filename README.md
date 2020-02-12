@@ -9,7 +9,7 @@ The most awesome distributed cloud database.
 
 ## Documentation
 
-- [__Report__](report/G4 - Report.pdf)
+- [__Report__](report/G4%20-%20Report.pdf)
 - More detailed [architecture documentation](ARCHITECTURE.md).
 - [Map/Reduce Tutorial](MAP_REDUCE.md)
 
